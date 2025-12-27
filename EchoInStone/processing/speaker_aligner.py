@@ -18,13 +18,24 @@ class SpeakerAligner(AlignerInterface):
         logger.debug("Combining transcription and diarization...")
         speaker_transcriptions = []
 
+        # Guard against missing diarization or timestamps to avoid None math
+        if diarization is None or timestamps is None:
+            logger.warning("Cannot align without diarization and timestamps.")
+            return speaker_transcriptions
+
         # Find the end time of the last segment in diarization
-        last_diarization_end = self.get_last_segment(diarization).end
+        last_segment = self.get_last_segment(diarization)
+        last_diarization_end = last_segment.end if last_segment else None
 
         for chunk in timestamps:
             chunk_start = chunk['timestamp'][0]
             chunk_end = chunk['timestamp'][1]
             segment_text = chunk['text']
+
+            # Skip chunks without a valid start
+            if chunk_start is None:
+                logger.warning(f"Skipping chunk with missing start time: {chunk}")
+                continue
 
             # Handle the case where chunk_end is None
             if chunk_end is None:
@@ -52,12 +63,22 @@ class SpeakerAligner(AlignerInterface):
         Returns:
             tuple: The best matching speaker segment (start, end, speaker).
         """
+        # If timestamps are missing, we cannot compute an overlap
+        if start_time is None or end_time is None:
+            logger.warning(f"Cannot find match without valid times: start={start_time}, end={end_time}")
+            return None
+
         best_match = None
         max_intersection = 0
 
         for turn, _, speaker in diarization.itertracks(yield_label=True):
             turn_start = turn.start
             turn_end = turn.end
+
+            # Skip segments with None start or end times
+            if turn_start is None or turn_end is None:
+                logger.warning(f"Skipping diarization segment with None times: start={turn_start}, end={turn_end}")
+                continue
 
             # Calculate intersection manually
             intersection_start = max(start_time, turn_start)

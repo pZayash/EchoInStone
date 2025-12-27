@@ -1,4 +1,6 @@
+import io
 import logging
+import sys
 from logging.handlers import RotatingFileHandler
 
 def configure_logging(log_level=logging.INFO):
@@ -19,14 +21,21 @@ def configure_logging(log_level=logging.INFO):
 
     # Add console handler if not already present
     if not has_console_handler:
-        console_handler = logging.StreamHandler()
+        # Force UTF-8 output even on Windows consoles configured with legacy code pages
+        utf8_stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+        console_handler = logging.StreamHandler(stream=utf8_stdout)
         console_handler.setLevel(log_level)
         console_handler.setFormatter(logging.Formatter(log_format))
         logger.addHandler(console_handler)
 
     # Add file handler if not already present
     if not has_file_handler:
-        file_handler = RotatingFileHandler(log_file, maxBytes=5*1024*1024, backupCount=5)
+        file_handler = RotatingFileHandler(
+            log_file,
+            maxBytes=5*1024*1024,
+            backupCount=5,
+            encoding='utf-8',
+        )
         file_handler.setLevel(log_level)
         file_handler.setFormatter(logging.Formatter(log_format))
         logger.addHandler(file_handler)

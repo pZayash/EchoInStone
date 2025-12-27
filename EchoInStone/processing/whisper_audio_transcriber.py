@@ -13,12 +13,20 @@ class WhisperAudioTranscriber(AudioTranscriberInterface):
         Args:
             model_name (str): The name of the model to use for transcription.
         """
+        print(f"PyTorch version: {torch.__version__}")
+        print(f"XPU available: {torch.xpu.is_available()}")
+        print(f"Device count: {torch.xpu.device_count()}")
+        print(f"Device name: {torch.xpu.get_device_name(0)}") 
+        
         # Configure the device for computation
         if torch.cuda.is_available():
             self.device = "cuda:0"
             self.torch_dtype = torch.float16
         elif torch.backends.mps.is_available():
             self.device = "mps"
+            self.torch_dtype = torch.float16
+        elif torch.xpu.is_available():
+            self.device = "xpu"
             self.torch_dtype = torch.float16
         else:
             self.device = "cpu"

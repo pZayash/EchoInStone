@@ -36,6 +36,12 @@
 2. **Install dependencies using Poetry**:
    ```bash
    poetry install
+    ```
+
+ 
+ **zayash: To use intel arc xpu**:
+   ```bash
+   poetry run pip3 install torch==2.7.0+xpu torchvision torchaudio --index-url https://download.pytorch.org/whl/xpu
    ```
 
 3. **Configure logging** (optional):

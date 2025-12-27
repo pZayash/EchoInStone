@@ -24,11 +24,12 @@ class PyannoteDiarizer(DiarizerInterface):
                 use_auth_token=HUGGING_FACE_TOKEN
             )
             # Move the pipeline to GPU (if available)
-            device = torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
+            device = torch.device("xpu") # torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
             self.pipeline.to(device)
             logger.info(f"Diarization pipeline loaded and set to use {device}.")
         except Exception as e:
             logger.error(f"Error loading the diarization model: {e}")
+            logger.warning(f"Error loading the diarization model: {e}")
             self.pipeline = None
 
     def diarize(self, audio_path: str):
