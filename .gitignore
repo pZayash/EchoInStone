@@ -137,3 +137,8 @@ __pypackages__/
 
 # Cython debug symbols
 cython_debug/
+
+# Windows artifacts
+desktop.ini
+
+
