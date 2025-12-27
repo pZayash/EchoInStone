@@ -1,6 +1,9 @@
 import torch
 import logging
+import threading
+import time
 from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
+from pydub import AudioSegment
 from .audio_transcriber_interface import AudioTranscriberInterface
 from EchoInStone.utils import timer, log_time
 
@@ -66,6 +69,70 @@ class WhisperAudioTranscriber(AudioTranscriberInterface):
             logger.error(f"Error loading the transcription model: {e}")
             raise
 
+    def _get_audio_duration(self, audio_path: str) -> float:
+        """Get the duration of the audio file in seconds.
+
+        Args:
+            audio_path (str): Path to the audio file.
+
+        Returns:
+            float: Duration in seconds, or 0 if unable to determine.
+        """
+        try:
+            audio = AudioSegment.from_file(audio_path)
+            duration_seconds = len(audio) / 1000.0  # pydub returns duration in milliseconds
+            return duration_seconds
+        except Exception as e:
+            logger.warning(f"Could not determine audio duration: {e}")
+            return 0.0
+
+    def _format_duration(self, seconds: float) -> str:
+        """Format duration in seconds to a human-readable string.
+
+        Args:
+            seconds (float): Duration in seconds.
+
+        Returns:
+            str: Formatted duration string (e.g., "5m 30s" or "1h 23m 45s").
+        """
+        if seconds < 60:
+            return f"{int(seconds)}s"
+        elif seconds < 3600:
+            minutes = int(seconds // 60)
+            secs = int(seconds % 60)
+            return f"{minutes}m {secs}s"
+        else:
+            hours = int(seconds // 3600)
+            minutes = int((seconds % 3600) // 60)
+            secs = int(seconds % 60)
+            return f"{hours}h {minutes}m {secs}s"
+
+    def _progress_logger(self, duration: float, stop_event: threading.Event):
+        """Log progress periodically while transcription is running.
+
+        Args:
+            duration (float): Audio duration in seconds, or 0 if unknown.
+            stop_event (threading.Event): Event to signal when to stop logging.
+        """
+        start_time = time.time()
+        interval = 60  # Log every 1 minute
+        last_logged = 0
+        
+        while not stop_event.is_set():
+            elapsed = time.time() - start_time
+            if elapsed - last_logged >= interval:
+                elapsed_str = self._format_duration(elapsed)
+                if duration > 0:
+                    # Show elapsed time and ratio to audio duration
+                    # Processing typically takes longer than audio duration
+                    ratio = elapsed / duration
+                    logger.info(f"Transcription in progress... elapsed: {elapsed_str} "
+                              f"(processing time / audio duration: {ratio:.2f}x)")
+                else:
+                    logger.info(f"Transcription in progress... elapsed: {elapsed_str}")
+                last_logged = elapsed
+            time.sleep(1)
+
     @timer
     def transcribe(self, audio_path: str) -> tuple:
         """Transcribe audio from the given file path.
@@ -77,10 +144,48 @@ class WhisperAudioTranscriber(AudioTranscriberInterface):
             tuple: A tuple containing the transcription text and timestamps.
         """
         try:
+            # Get audio duration for progress tracking
+            duration = self._get_audio_duration(audio_path)
+            chunk_length = self.pipe.chunk_length_s if hasattr(self.pipe, 'chunk_length_s') else 5
+            
+            if duration > 0:
+                estimated_chunks = int(duration / chunk_length) + 1
+                duration_str = self._format_duration(duration)
+                logger.info(f"Starting transcription of {audio_path}")
+                logger.info(f"Audio duration: {duration_str} ({duration:.1f}s), estimated chunks: {estimated_chunks}")
+            else:
+                logger.info(f"Starting transcription of {audio_path}")
+                logger.info("Audio duration: unknown")
+
+            # Start progress logger in background thread
+            stop_event = threading.Event()
+            progress_thread = threading.Thread(
+                target=self._progress_logger,
+                args=(duration, stop_event),
+                daemon=True
+            )
+            progress_thread.start()
+
             # Perform transcription with timestamps
-            result = self.pipe(audio_path)
-            transcription = result['text']
-            timestamps = result['chunks']
+            logger.info("Transcription in progress...")
+            try:
+                result = self.pipe(audio_path)
+                transcription = result['text']
+                timestamps = result['chunks']
+            finally:
+                # Stop progress logger
+                stop_event.set()
+                progress_thread.join(timeout=1)
+            
+            # Log completion with statistics
+            if timestamps:
+                processed_chunks = len(timestamps)
+                transcription_length = len(transcription) if transcription else 0
+                logger.info(f"Transcription completed: processed {processed_chunks} chunks, "
+                          f"generated {transcription_length} characters")
+            else:
+                logger.info("Transcription completed")
+            
             logger.info(f"Successfully transcribed: {audio_path}")
             return transcription, timestamps
         except Exception as e:
