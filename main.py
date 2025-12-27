@@ -144,16 +144,13 @@ def main(echo_input, output_dir, transcription_output):
     if speaker_transcriptions:
         # Save the results to JSON file
         data_saver.save_data(transcription_output, speaker_transcriptions)
-        logger.info(f"Transcriptions have been saved to {transcription_output}")
 
         # Save the results to CSV file
         csv_filename = os.path.splitext(transcription_output)[0] + ".csv"
         data_saver.save_transcriptions_to_csv(csv_filename, speaker_transcriptions)
-        logger.info(f"Transcriptions have been saved to {csv_filename}")
 
-        # Display the results
-        for speaker, start_time, end_time, segment_text in speaker_transcriptions:
-            logger.info(f"Speaker {speaker} ({start_time:.2f}s to {end_time:.2f}s): {segment_text}")
+        logger.info(f"Transcriptions complete")
+        
     else:
         logger.warning("No transcriptions were generated.")
 
