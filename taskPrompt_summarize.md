@@ -33,7 +33,7 @@ The summary should include:
    - List all major topics covered
    - Organize by theme or chronological order
 
-<optional_for_meeting_discussion>
+<optional for meeting and discussion>
 3. **Decisions Made**
    - Document all decisions reached during the conversation
    - Include any agreements or conclusions
@@ -59,9 +59,9 @@ The summary should include:
 
 7. **Possible buiseness features to develop** (if applicable)
    - Feature description in Gherkin format
-</optional_for_meeting_discussion>
+</optional for meeting and discussion>
 
-<optional_for_lecture_live_demo_workshop>
+<optional for lecture and webinar>
 3. **Code Examples and Demonstrations**
    - Document all code snippets shown
    - Include specific syntax examples
@@ -109,7 +109,7 @@ The summary should include:
     - Community resources (forums, groups, etc.)
     - Future webinars scheduled (if any)
     - Contact information for questions
-</optional_for_lecture_live_demo_workshop>
+</optional for lecture and webinar>
 
 ### Formatting Guidelines
 
