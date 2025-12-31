@@ -1,5 +1,7 @@
 # EchoInStone Project Rules
 
+- Always use english in this project. For commit messages, docstrings, comments, documentation and etc.
+
 ## Python Environment
 - Always use `poetry run` prefix when running Python commands, tests, or scripts
 - Example: `poetry run python main.py ...` or `poetry run pytest`
