@@ -1,6 +1,21 @@
 from .aligner_interface import AlignerInterface
 import logging
 
+# Import segment splitting configuration
+try:
+    from ..config import (
+        SEGMENT_TARGET_DURATION,
+        SEGMENT_MIN_DURATION,
+        SEGMENT_MAX_DURATION,
+        SEGMENT_PAUSE_THRESHOLD,
+    )
+except ImportError:
+    # Fallback defaults if config is not available
+    SEGMENT_TARGET_DURATION = 30
+    SEGMENT_MIN_DURATION = 20
+    SEGMENT_MAX_DURATION = 60
+    SEGMENT_PAUSE_THRESHOLD = 2.0
+
 logger = logging.getLogger(__name__)
 
 class SpeakerAligner(AlignerInterface):
@@ -92,14 +107,59 @@ class SpeakerAligner(AlignerInterface):
 
         return best_match
 
+    def _should_split_segment(self, current_segment, next_segment):
+        """Determines if segments should NOT be merged based on duration and pauses.
+
+        Split priority:
+        1. Pause between segments > SEGMENT_PAUSE_THRESHOLD (2+ seconds)
+        2. Current segment >= SEGMENT_TARGET_DURATION and ends with sentence punctuation
+        3. Current segment >= SEGMENT_MAX_DURATION (forced split)
+
+        Args:
+            current_segment (tuple): Current segment (speaker, start, end, text).
+            next_segment (tuple): Next segment (speaker, start, end, text).
+
+        Returns:
+            bool: True if segments should NOT be merged (split here).
+        """
+        current_duration = current_segment[2] - current_segment[1]
+        pause_duration = next_segment[1] - current_segment[2]
+        text = current_segment[3].strip()
+
+        # 1. Pause longer than threshold - always split
+        if pause_duration >= SEGMENT_PAUSE_THRESHOLD:
+            logger.debug(f"Splitting due to pause: {pause_duration:.2f}s >= {SEGMENT_PAUSE_THRESHOLD}s")
+            return True
+
+        # 2. Target duration reached and text ends with sentence punctuation
+        if current_duration >= SEGMENT_TARGET_DURATION:
+            # Check for sentence-ending punctuation (including Russian and common patterns)
+            sentence_endings = ('.', '?', '!', '...', '。', '？', '！')
+            if text.endswith(sentence_endings):
+                logger.debug(f"Splitting at sentence end: duration={current_duration:.2f}s, text ends with punctuation")
+                return True
+
+        # 3. Maximum duration reached - forced split
+        if current_duration >= SEGMENT_MAX_DURATION:
+            logger.debug(f"Forced split: duration={current_duration:.2f}s >= {SEGMENT_MAX_DURATION}s")
+            return True
+
+        return False
+
     def merge_consecutive_segments(self, segments):
-        """Merges consecutive segments of the same speaker.
+        """Merges consecutive segments of the same speaker with intelligent splitting.
+
+        Segments are merged unless:
+        - Different speaker
+        - Pause between segments > SEGMENT_PAUSE_THRESHOLD
+        - Current segment duration >= SEGMENT_TARGET_DURATION and ends with sentence
+        - Current segment duration >= SEGMENT_MAX_DURATION (forced split)
 
         Args:
             segments (list): List of segments to merge.
 
         Returns:
-            list: List of merged segments.
+            list: List of merged segments with target duration ~30 seconds.
         """
         merged_segments = []
         previous_segment = None
@@ -108,21 +168,30 @@ class SpeakerAligner(AlignerInterface):
             if previous_segment is None:
                 previous_segment = segment
             else:
+                # Check if same speaker
                 if segment[0] == previous_segment[0]:
-                    # Merge segments of the same speaker that are consecutive
-                    previous_segment = (
-                        previous_segment[0],
-                        previous_segment[1],
-                        segment[2],
-                        previous_segment[3] + segment[3]
-                    )
+                    # Check if we should split based on duration/pauses
+                    if self._should_split_segment(previous_segment, segment):
+                        # Don't merge - save previous and start new
+                        merged_segments.append(previous_segment)
+                        previous_segment = segment
+                    else:
+                        # Merge segments of the same speaker
+                        previous_segment = (
+                            previous_segment[0],
+                            previous_segment[1],
+                            segment[2],
+                            previous_segment[3] + segment[3]
+                        )
                 else:
+                    # Different speaker - don't merge
                     merged_segments.append(previous_segment)
                     previous_segment = segment
 
         if previous_segment:
             merged_segments.append(previous_segment)
 
+        logger.info(f"Merged {len(segments)} segments into {len(merged_segments)} segments")
         return merged_segments
 
     def get_last_segment(self, annotation):
