@@ -1,10 +1,14 @@
 # Hugging Face Token
 EchoInStone/config_private.py
 
-# transcriptions test, output and logs
+# transcriptions test, output, logs and ide artifacts
 results/
+results_test/
 test_output/
 app.log
+commit_message.txt
+*.mp3
+*.wav
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -140,6 +144,5 @@ cython_debug/
 
 # Windows artifacts
 desktop.ini
-*.mp3
 
 
