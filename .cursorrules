@@ -1,0 +1,33 @@
+# EchoInStone Project Rules
+
+## Python Environment
+- Always use `poetry run` prefix when running Python commands, tests, or scripts
+- Example: `poetry run python main.py ...` or `poetry run pytest`
+- The project uses Poetry for dependency management
+
+## Git Commit Messages
+- When asked to create a commit message, write it to `commit_message.txt` file in the project root
+- Use conventional commit format (feat:, fix:, etc.)
+- Include detailed description of changes, problem, solution, and testing results
+
+## Code Style
+- Follow existing code patterns in the project
+- Use type hints where appropriate
+- Add docstrings to new methods and classes
+
+## Testing
+- Run tests using: `poetry run pytest`
+- Test files are located in `tests/` directory
+- BDD tests use pytest-bdd and are in `features/` directory
+- For test output use `results_test/` directory
+
+## Configuration
+- Public configuration goes in `EchoInStone/config.py`
+- Private configuration (tokens, secrets) goes in `EchoInStone/config_private.py`
+- Both files should have the same structure for consistency
+
+## Audio Processing
+- Audio files are processed through the AudioProcessingOrchestrator
+- Results are saved in timestamped directories under `results/`
+- Output formats: JSON and CSV transcriptions
+
