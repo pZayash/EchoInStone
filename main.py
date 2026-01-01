@@ -102,6 +102,28 @@ def sanitize_dir_name(name: str) -> str:
     return sanitized[:100] if sanitized else "input"
 
 
+def get_source_info(echo_input: str) -> str:
+    """
+    Gets the source information (YouTube URL or filename) for transcription output.
+    
+    Args:
+        echo_input (str): Input URL or file path
+        
+    Returns:
+        str: YouTube URL if input is YouTube, otherwise the filename or URL
+    """
+    # Check if it's a YouTube URL
+    if "youtube.com" in echo_input or "youtu.be" in echo_input:
+        return echo_input
+    
+    # Check if it's a local file
+    if os.path.isfile(echo_input):
+        return os.path.basename(echo_input)
+    
+    # For URLs or other inputs, return as is
+    return echo_input
+
+
 # Youtube = 'https://www.youtube.com/watch?v=ipXG9iQq-Tw'
 # Podcast = 'https://radiofrance-podcast.net/podcast09/rss_13957.xml'
 
@@ -142,12 +164,20 @@ def main(echo_input, output_dir, transcription_output):
     logger.info("Starting transcription process...")
     speaker_transcriptions = orchestrator.extract_and_transcribe(echo_input)
     if speaker_transcriptions:
+        # Get source information (YouTube URL or filename)
+        source_info = get_source_info(echo_input)
+        
+        # Add source information at the beginning of transcriptions
+        # Format: (speaker, start, end, text) with start=0, end=0
+        source_entry = ("", 0, 0, source_info)
+        speaker_transcriptions_with_source = [source_entry] + speaker_transcriptions
+        
         # Save the results to JSON file
-        data_saver.save_data(transcription_output, speaker_transcriptions)
+        data_saver.save_data(transcription_output, speaker_transcriptions_with_source)
 
         # Save the results to CSV file
         csv_filename = os.path.splitext(transcription_output)[0] + ".csv"
-        data_saver.save_transcriptions_to_csv(csv_filename, speaker_transcriptions)
+        data_saver.save_transcriptions_to_csv(csv_filename, speaker_transcriptions_with_source)
 
         logger.info(f"Transcriptions complete")
         
