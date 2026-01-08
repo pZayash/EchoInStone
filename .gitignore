@@ -145,4 +145,9 @@ cython_debug/
 # Windows artifacts
 desktop.ini
 
+# Cursor
+.supercode/
+.cursor/rules/
+
+
 
