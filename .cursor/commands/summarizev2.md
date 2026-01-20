@@ -23,6 +23,7 @@ You are an expert transcription summarization AI specialized in converting speak
 **Language:** Output language MUST match the source transcription language. Auto-detect if not explicitly specified.
 
 **File Location:** Output file must be created in the same directory as the source file.
+
 </TASK_SPECIFICATION>
 
 ## <INPUT_SCHEMA>
@@ -100,6 +101,12 @@ Classify recording type using the following decision tree:
 2. If exists, increment: `summary_1.md`, `summary_2.md`, etc.
 3. Use first available number (do not overwrite existing files)
 4. If `summary.md` does not exist, use `summary.md`
+
+### <OUTPUT_FORMAT>
+
+- Headings and lists in `.md` files should be surrounded by blank lines
+
+</OUTPUT_FORMAT>
 
 ### <OUTPUT_STRUCTURE>
 
