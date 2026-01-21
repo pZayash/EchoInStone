@@ -7,7 +7,8 @@
 - **Transcription**: Convert audio files into text using state-of-the-art automatic speech recognition (ASR) model, `Whisper Large v3 Turbo`.
 - **Diarization**: Identify and separate different speakers in an audio file with the cutting-edge model, `Pyannote Speaker Diarization 3.1`.
 - **Alignment**: Align transcribed text with the corresponding audio segments using a customized algorithm tailored to be highly efficient and faithful to the outputs of Whisper and Pyannote, `SpeakerAlignement`.
-- **Flexible and Extensible Pipeline**: Easily integrate new models or processing steps into an orchestrated pipeline, `AudioProcessingOrchestrator`.
+- **Video Scene Analysis**: Detect visual scene boundaries, generate scene descriptions, and extract on-screen text via OCR.
+- **Flexible and Extensible Pipeline**: Easily integrate new models or processing steps into an orchestrated pipeline, `MediaProcessingOrchestrator`.
 
 > Note: The current version of EchoInStone is a preliminary release. Future updates will include more flexible configuration options and enhanced functionality.
 
@@ -18,12 +19,16 @@
 - Python 3.11 or higher
 - Poetry (dependency management tool)
 - ffmpeg (required for audio processing)
+- Tesseract OCR (required for text extraction from video frames)
 
 > Note: `ffmpeg` must be installed and available in your system's PATH.  
 > You can install it via your package manager:
 > - On macOS: `brew install ffmpeg`
 > - On Ubuntu/Debian: `sudo apt install ffmpeg`
 > - On Windows: Download from [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
+
+> Note: Tesseract OCR must be installed and available in your system's PATH.  
+> You can install it via your package manager or from [https://github.com/tesseract-ocr/tesseract](https://github.com/tesseract-ocr/tesseract).
 
 ### Steps
 
@@ -84,6 +89,8 @@ poetry run python main.py <audio_input_url>
   ```bash
   poetry run python main.py <audio_input_url> --transcription_output <output_filename>
   ```
+- **`--enable_video_analysis`** / **`--disable_video_analysis`**: Toggle video scene analysis when input is a video source.
+- **`--scene_output`**: Filename for the scene analysis output. Default is `"scene_analysis.json"`.
 
 ### Examples
 
@@ -100,6 +107,11 @@ poetry run python main.py <audio_input_url>
 - **Transcribe and diarize a direct MP3 file**:
   ```bash
   poetry run python main.py "https://media.radiofrance-podcast.net/podcast09/25425-13.02.2025-ITEMA_24028677-2025C53905E0006-NET_MFC_D378B90D-D570-44E9-AB5A-F0CC63B05A14-21.mp3"
+  ```
+
+- **Analyze a video file with scene detection and OCR**:
+  ```bash
+  poetry run python main.py "https://example.com/demo.mp4" --enable_video_analysis --scene_output scene_analysis.json
   ```
 
 ## Testing
@@ -140,6 +152,9 @@ The coverage report will be generated in the `htmlcov/` directory.
   - `test_audio_downloader.py`: Tests for URL/file downloading functionality
   - `test_downloader_factory.py`: Tests for downloader selection logic
   - `test_integration.py`: Integration tests for complete workflows
+  - `test_scene_detection.py`: Tests for scene detection logic
+  - `test_tesseract_ocr_text_extractor.py`: Tests for OCR filtering and caching
+  - `test_video_processing_pipeline.py`: Tests for video pipeline outputs
 
 - **`features/`**: BDD tests that describe user-facing behavior
   - `downloader.feature`: Downloader selection scenarios
@@ -147,6 +162,7 @@ The coverage report will be generated in the `htmlcov/` directory.
   - `successful_download.feature`: Download success scenarios
   - `invalid_url.feature`: Error handling scenarios
   - `transcription_output.feature`: Transcription output validation
+  - `video_scene_analysis.feature`: Video scene analysis behavior
 
 ### Test Examples
 
@@ -170,6 +186,21 @@ Logging is configured to output messages to both the console and a file (`app.lo
 
 - **Transcription Model**: The default transcription model is `openai/whisper-large-v3-turbo`. You can change this by modifying the `model_name` parameter in the `WhisperAudioTranscriber` initialization.
 - **Diarization Model**: The default diarization model is `pyannote/speaker-diarization-3.1`. You can change this by modifying the model loading code in the `PyannoteDiarizer` class.
+
+### Video Analysis Configuration
+
+Video analysis settings live in `EchoInStone/config.py`. Common options include:
+
+- `VIDEO_ANALYSIS_ENABLED`: Default toggle for video analysis.
+- `VIDEO_PROCESSING_PROFILE`: Profile selection (`fast`, `balanced`, `quality`).
+- `VIDEO_FRAME_SAMPLING_SECONDS`: Frame sampling interval.
+- `VIDEO_MAX_WORKERS`: Parallel worker count for scene analysis.
+- `VIDEO_MAX_SCENE_SAMPLES`: Maximum frames sampled per scene.
+
+### Operational Guides
+
+- `video_processing_runbook.md`: Troubleshooting video processing failures.
+- `video_ocr_guide.md`: Tips for improving OCR accuracy.
 
 ## Contributing
 

@@ -1,39 +1,15 @@
-from ..capture import DownloaderInterface
-from .audio_transcriber_interface import AudioTranscriberInterface
-from .diarizer_interface import DiarizerInterface
-from ..utils import DataSaver
-from .aligner_interface import AlignerInterface
+from typing import Optional
 
-import logging
+from .audio_processing_pipeline import AudioProcessingPipeline
+from .media_processing_orchestrator import MediaProcessingOrchestrator
 
-logger = logging.getLogger(__name__)
 
-class AudioProcessingOrchestrator:
-    def __init__(self, downloader: DownloaderInterface,
-                       transcriber: AudioTranscriberInterface,
-                       diarizer: DiarizerInterface,
-                       aligner: AlignerInterface,
-                       saver: DataSaver,):
-        self.downloader = downloader
-        self.transcriber = transcriber
-        self.diarizer = diarizer
-        self.aligner = aligner
-        self.saver = saver
+class AudioProcessingOrchestrator(AudioProcessingPipeline):
+    def __init__(self, *args, media_orchestrator: Optional[MediaProcessingOrchestrator] = None, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.media_orchestrator = media_orchestrator
 
-    def extract_and_transcribe(self, echo_input: str):
-        logger.debug("Downloading audio...")
-        audio_path = self.downloader.download(echo_input)
-        if audio_path:
-            logger.debug("Transcribing downloaded audio...")
-            transcription, timestamps = self.transcriber.transcribe(audio_path)
-            logger.debug("Diarizing downloaded audio...")
-            diarization = self.diarizer.diarize(audio_path)
-
-            if logger.isEnabledFor(logging.DEBUG):
-                logger.debug("Writing debug files.")
-                self.saver.save_data("audio_transcription.txt", transcription)
-                self.saver.save_data("audio_timestamps.json", timestamps)
-                self.saver.save_data("audio_diarization.txt", str(diarization))
-
-            return self.aligner.align(transcription, timestamps, diarization)
-        return None
+    def extract_and_transcribe(self, echo_input: str, video_path: Optional[str] = None):
+        if self.media_orchestrator:
+            return self.media_orchestrator.process(echo_input, video_path)
+        return self.process(echo_input)

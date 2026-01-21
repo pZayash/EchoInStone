@@ -1,3 +1,5 @@
+# Instructions for AI agents
+
 <!-- OPENSPEC:START -->
 # OpenSpec Instructions
 
@@ -16,3 +18,7 @@ Use `@/openspec/AGENTS.md` to learn:
 Keep this managed block so 'openspec update' can refresh the instructions.
 
 <!-- OPENSPEC:END -->
+
+## Tool usage
+
+Always use Context7 MCP when I need library/API documentation, code generation, setup or configuration steps without me having to explicitly ask.

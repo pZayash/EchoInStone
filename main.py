@@ -7,10 +7,28 @@ from EchoInStone.utils import configure_logging
 import logging
 
 from pytubefix import YouTube
-from EchoInStone.capture.downloader_factory import get_downloader
-from EchoInStone.processing import AudioProcessingOrchestrator, WhisperAudioTranscriber, PyannoteDiarizer, SpeakerAligner
+from EchoInStone.capture.downloader_factory import get_downloader, get_video_downloader
+from EchoInStone.processing import (
+    AudioProcessingPipeline,
+    MediaProcessingOrchestrator,
+    VideoProcessingPipeline,
+    WhisperAudioTranscriber,
+    PyannoteDiarizer,
+    SpeakerAligner,
+    PySceneDetectVideoSceneAnalyzer,
+    TesseractOCRTextExtractor,
+)
 from EchoInStone.utils import DataSaver
 from EchoInStone.utils import timer, log_time
+from EchoInStone.config import (
+    VIDEO_ANALYSIS_ENABLED,
+    VIDEO_ENABLE_PARALLEL,
+    VIDEO_FRAME_SAMPLING_SECONDS,
+    VIDEO_MAX_SCENE_SAMPLES,
+    VIDEO_MAX_WORKERS,
+    VIDEO_PROCESSING_PROFILE,
+    VIDEO_PROFILE_SETTINGS,
+)
 
 # Configure logging
 configure_logging(logging.INFO)
@@ -133,9 +151,15 @@ def get_source_info(echo_input: str) -> str:
 
 
 @timer
-def main(echo_input, output_dir, transcription_output):
+def main(
+    echo_input,
+    output_dir,
+    transcription_output,
+    enable_video_analysis: bool | None = None,
+    scene_output="scene_analysis.json",
+):
     """
-    Main function to orchestrate the audio processing pipeline.
+    Main function to orchestrate the media processing pipeline.
     """
     # Extract input name and create timestamped subdirectory
     input_name = extract_input_name(echo_input)
@@ -150,6 +174,10 @@ def main(echo_input, output_dir, transcription_output):
     os.makedirs(timestamped_output_dir, exist_ok=True)
     logger.info(f"Output directory: {timestamped_output_dir}")
     
+    # Apply default configuration for video analysis if not explicitly set
+    if enable_video_analysis is None:
+        enable_video_analysis = VIDEO_ANALYSIS_ENABLED
+
     # Initialize components with timestamped output directory
     downloader = get_downloader(echo_input, timestamped_output_dir)
     transcriber = WhisperAudioTranscriber()
@@ -157,12 +185,41 @@ def main(echo_input, output_dir, transcription_output):
     aligner = SpeakerAligner()
     data_saver = DataSaver(output_dir=timestamped_output_dir)
 
-    # Create an instance of AudioProcessingOrchestrator
-    orchestrator = AudioProcessingOrchestrator(downloader, transcriber, diarizer, aligner, data_saver)
+    audio_pipeline = AudioProcessingPipeline(downloader, transcriber, diarizer, aligner, data_saver)
+
+    video_pipeline = None
+    video_path = None
+    if enable_video_analysis:
+        video_downloader = get_video_downloader(echo_input, timestamped_output_dir)
+        if video_downloader:
+            video_path = video_downloader.download(echo_input)
+            if video_path:
+                profile_settings = VIDEO_PROFILE_SETTINGS.get(VIDEO_PROCESSING_PROFILE, {})
+                scene_analyzer = PySceneDetectVideoSceneAnalyzer()
+                ocr_extractor = TesseractOCRTextExtractor()
+                video_pipeline = VideoProcessingPipeline(
+                    scene_analyzer,
+                    ocr_extractor,
+                    data_saver,
+                    frame_sampling_seconds=profile_settings.get(
+                        "frame_sampling_seconds", VIDEO_FRAME_SAMPLING_SECONDS
+                    ),
+                    max_workers=profile_settings.get("max_workers", VIDEO_MAX_WORKERS),
+                    enable_parallel=profile_settings.get("enable_parallel", VIDEO_ENABLE_PARALLEL),
+                    max_scene_samples=profile_settings.get("max_scene_samples", VIDEO_MAX_SCENE_SAMPLES),
+                )
+        else:
+            logger.warning("Video analysis enabled, but input is not a supported video source.")
+
+    orchestrator = MediaProcessingOrchestrator(
+        audio_pipeline=audio_pipeline,
+        video_pipeline=video_pipeline,
+        enable_video_analysis=enable_video_analysis,
+    )
 
     # Process the input URL
     logger.info("Starting transcription process...")
-    speaker_transcriptions = orchestrator.extract_and_transcribe(echo_input)
+    speaker_transcriptions, scene_results = orchestrator.process(echo_input, video_path)
     if speaker_transcriptions:
         # Get source information (YouTube URL or filename)
         source_info = get_source_info(echo_input)
@@ -184,12 +241,32 @@ def main(echo_input, output_dir, transcription_output):
     else:
         logger.warning("No transcriptions were generated.")
 
+    if scene_results is not None:
+        data_saver.save_scene_analysis(scene_output, scene_results)
+        logger.info("Scene analysis complete")
+
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="EchoInStone Audio Processing CLI")
+    parser = argparse.ArgumentParser(description="EchoInStone Media Processing CLI")
     parser.add_argument("echo_input", type=str, help="URL of the audio input (YouTube, podcast, or direct audio file)")
     parser.add_argument("--output_dir", type=str, default="results", help="Directory to save the output files")
     parser.add_argument("--transcription_output", type=str, default="speaker_transcriptions.json", help="Filename for the transcription output")
+    video_group = parser.add_mutually_exclusive_group()
+    video_group.add_argument("--enable_video_analysis", action="store_true", help="Enable video scene analysis if input is video")
+    video_group.add_argument("--disable_video_analysis", action="store_true", help="Disable video scene analysis")
+    parser.add_argument("--scene_output", type=str, default="scene_analysis.json", help="Filename for the scene analysis output")
 
     args = parser.parse_args()
+    if args.enable_video_analysis:
+        enable_video_analysis = True
+    elif args.disable_video_analysis:
+        enable_video_analysis = False
+    else:
+        enable_video_analysis = None
 
-    main(args.echo_input, args.output_dir, args.transcription_output)
+    main(
+        args.echo_input,
+        args.output_dir,
+        args.transcription_output,
+        enable_video_analysis,
+        args.scene_output,
+    )

@@ -68,3 +68,13 @@ class DataSaver:
             logger.info(f"CSV saved to {file_path}")
         except Exception as e:
             logger.error(f"Error saving CSV: {e}")
+
+    def save_scene_analysis(self, filename: str, scenes):
+        """
+        Saves scene analysis results in the standard JSON format.
+
+        Args:
+            filename (str): The name of the scene analysis JSON file.
+            scenes (list): List of scene analysis records.
+        """
+        self.save_data(filename, {"scenes": scenes})

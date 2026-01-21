@@ -3,6 +3,7 @@ from urllib.parse import urlparse
 from .podcast_downloader import PodcastDownloader
 from .youtube_downloader import YouTubeDownloader
 from .audio_downloader import AudioDownloader
+from .video_downloader import VideoDownloader
 from .downloader_interface import DownloaderInterface
 
 def get_downloader(url: str, output_dir: str) -> DownloaderInterface:
@@ -25,3 +26,17 @@ def get_downloader(url: str, output_dir: str) -> DownloaderInterface:
             return AudioDownloader(output_dir=output_dir)
         else:
             raise ValueError("Unsupported URL format")
+
+
+def get_video_downloader(url: str, output_dir: str) -> DownloaderInterface | None:
+    video_extensions = (".mp4", ".webm", ".mkv", ".avi", ".mov")
+    if "youtube.com" in url or "youtu.be" in url:
+        return VideoDownloader(output_dir=output_dir)
+    if url.lower().endswith(video_extensions):
+        return VideoDownloader(output_dir=output_dir)
+    if os.path.isfile(url) and url.lower().endswith(video_extensions):
+        return VideoDownloader(output_dir=output_dir)
+    parsed_url = urlparse(url)
+    if bool(parsed_url.netloc) and parsed_url.path.lower().endswith(video_extensions):
+        return VideoDownloader(output_dir=output_dir)
+    return None

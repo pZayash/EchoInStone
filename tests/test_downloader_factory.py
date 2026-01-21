@@ -1,10 +1,11 @@
 import pytest
 import tempfile
 import os
-from EchoInStone.capture.downloader_factory import get_downloader
+from EchoInStone.capture.downloader_factory import get_downloader, get_video_downloader
 from EchoInStone.capture.youtube_downloader import YouTubeDownloader
 from EchoInStone.capture.podcast_downloader import PodcastDownloader
 from EchoInStone.capture.audio_downloader import AudioDownloader
+from EchoInStone.capture.video_downloader import VideoDownloader
 
 
 class TestDownloaderFactory:
@@ -93,3 +94,18 @@ class TestDownloaderFactory:
         
         downloader = get_downloader(test_url, expected_output_dir)
         assert downloader.output_dir == expected_output_dir
+
+    def test_video_downloader_for_local_video(self):
+        """Test that local video files return VideoDownloader"""
+        test_file = os.path.join(self.temp_dir, "test.mp4")
+        with open(test_file, 'w') as f:
+            f.write('test')
+
+        downloader = get_video_downloader(test_file, self.temp_dir)
+        assert isinstance(downloader, VideoDownloader)
+
+    def test_video_downloader_returns_none_for_audio(self):
+        """Test that audio inputs do not return VideoDownloader"""
+        audio_url = "https://example.com/audio.mp3"
+        downloader = get_video_downloader(audio_url, self.temp_dir)
+        assert downloader is None
