@@ -1,0 +1,54 @@
+schema: spec-driven
+context: |
+  # Project Context
+
+  ## Purpose
+
+  EchoInStone is a comprehensive audio processing tool designed to transcribe, diarize, and align speaker segments from audio files with a focus on achieving the most accurate and faithful transcription possible. It supports various audio sources including YouTube videos and podcasts, providing a flexible pipeline for processing audio data, prioritizing precision and reliability over speed.
+
+  **Core Goals:**
+  - Extract accurate text transcriptions from audio using state-of-the-art ASR models
+  - Identify and separate different speakers in audio files
+  - Align transcribed text with corresponding audio segments
+  - Support multiple audio input sources (YouTube, podcasts, direct files)
+  - Provide extensible and modular architecture for future enhancements
+
+  ## Tech Stack
+
+  ### Core Technologies
+  - **Python 3.12+** - Primary programming language
+  - **Poetry** - Dependency management and packaging
+  - **PyTorch 2.7.0** - Machine learning framework (Intel XPU optimized)
+  - **Transformers 4.50.0** - Hugging Face transformers for ML models
+
+  ### Audio Processing Libraries
+  - **OpenAI Whisper Large v3 Turbo** - Automatic speech recognition
+  - **Pyannote Audio 3.3.2** - Speaker diarization (Hugging Face token)
+  - **PyDub 0.25.1** - Audio file manipulation
+  - **Accelerate 1.3.0** - Model acceleration
+
+  ### Data Processing
+  - **Requests 2.32.3** - HTTP client
+  - **Feedparser 6.0.11** - RSS/podcast feed parsing
+  - **PyTubeFix 8.12.1** - YouTube video/audio downloading
+
+  ### Development & Testing
+  - **pytest-bdd 8.1.0** - BDD testing
+  - **pytest-cov 6.0.0** - Coverage
+  - **ffmpeg** - Audio/video processing (system dependency)
+
+  ## Project Conventions
+
+  - PEP 8, type hints, ~88 char lines (Black), snake_case / PascalCase
+  - Modular layout: EchoInStone/capture, processing, utils, config.py; entry via main.py
+  - Patterns: interfaces, DownloaderFactory, AudioProcessingOrchestrator
+  - Tests: unit tests in tests/, BDD in features/, poetry run pytest
+
+  ## Domain & constraints
+
+  - ASR (Whisper), diarization (Pyannote), alignment for timestamps
+  - Sources: YouTube, podcasts, URLs, local files
+  - Python 3.12+, GPU/XPU optional, HF token for Pyannote
+  - Audio formats: MP3, WAV, M4A, FLAC, OGG, WebM
+
+  Full historical detail (module tree, extended constraints) lives in `openspec/project.md` until that file is removed.

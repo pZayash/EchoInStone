@@ -2,6 +2,10 @@ import os
 import json
 import csv
 import logging
+import time
+import uuid
+from typing import Optional, List
+import cv2
 
 logger = logging.getLogger(__name__)
 
@@ -78,3 +82,88 @@ class DataSaver:
             scenes (list): List of scene analysis records.
         """
         self.save_data(filename, {"scenes": scenes})
+
+    def save_image_artifact(
+        self,
+        job_id: Optional[str],
+        scene_id: Optional[int],
+        image,
+        engine: str,
+        variant: str,
+        preprocessing: Optional[List[str]] = None,
+        ocr_confidence: Optional[float] = None,
+        text_excerpt: Optional[str] = None,
+        max_per_scene: int = 10,
+        image_format: str = "png",
+    ) -> Optional[str]:
+        """
+        Persist an image artifact used for OCR and append an entry to a companion manifest.
+
+        Returns the filename written or None on failure.
+        """
+        try:
+            root_dir = self.output_dir
+            resolved_job_id = job_id
+            if not resolved_job_id:
+                resolved_job_id = os.path.basename(os.path.normpath(self.output_dir)) or "job"
+            else:
+                root_dir = os.path.join(self.output_dir, resolved_job_id)
+
+            scene_part = f"scene_{scene_id}" if scene_id is not None else "scene_unknown"
+            target_dir = os.path.join(root_dir, "ocr_screenshots", scene_part)
+            os.makedirs(target_dir, exist_ok=True)
+
+            # enforce max per scene
+            existing = [f for f in os.listdir(target_dir) if f.lower().endswith(f".{image_format}")]
+            if len(existing) >= max_per_scene:
+                logger.debug("Max artifacts per scene reached (%d); skipping save.", max_per_scene)
+                return None
+
+            timestamp_ms = int(time.time() * 1000)
+            shortid = uuid.uuid4().hex[:6]
+            safe_variant = variant.replace(" ", "_") if variant else "v"
+            filename = f"{timestamp_ms}_{engine}_{safe_variant}_{shortid}.{image_format}"
+            filepath = os.path.join(target_dir, filename)
+
+            # write image using OpenCV
+            try:
+                cv2.imwrite(filepath, image)
+            except Exception as exc:
+                logger.error("Failed to write image artifact %s: %s", filepath, exc)
+                return None
+
+            # update manifest (atomic write)
+            manifest_dir = os.path.join(root_dir, "ocr_screenshots")
+            os.makedirs(manifest_dir, exist_ok=True)
+            manifest_path = os.path.join(manifest_dir, "manifest.json")
+            manifest = {"job_id": resolved_job_id, "images": []}
+            if os.path.isfile(manifest_path):
+                try:
+                    with open(manifest_path, "r", encoding="utf-8") as mf:
+                        manifest = json.load(mf)
+                except Exception:
+                    # if manifest corrupt, overwrite with fresh structure
+                    manifest = {"job_id": job_id, "images": []}
+
+            entry = {
+                "filename": os.path.join(scene_part, filename),
+                "scene_id": scene_id,
+                "timestamp": timestamp_ms,
+                "engine": engine,
+                "variant": variant,
+                "preprocessing": preprocessing or [],
+                "ocr_confidence": ocr_confidence,
+                "text_excerpt": (text_excerpt[:200] if text_excerpt else ""),
+            }
+            manifest.setdefault("images", []).append(entry)
+
+            tmp_path = manifest_path + ".tmp"
+            with open(tmp_path, "w", encoding="utf-8") as mf:
+                json.dump(manifest, mf, ensure_ascii=False, indent=2)
+            os.replace(tmp_path, manifest_path)
+
+            logger.info("Saved OCR image artifact %s (manifest updated).", filepath)
+            return filename
+        except Exception as exc:
+            logger.error("Unexpected error saving image artifact: %s", exc)
+            return None

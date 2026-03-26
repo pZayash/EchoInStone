@@ -27,8 +27,11 @@
 > - On Ubuntu/Debian: `sudo apt install ffmpeg`
 > - On Windows: Download from [https://ffmpeg.org/download.html](https://ffmpeg.org/download.html)
 
-> Note: Tesseract OCR must be installed and available in your system's PATH.  
-> You can install it via your package manager or from [https://github.com/tesseract-ocr/tesseract](https://github.com/tesseract-ocr/tesseract).
+> Note: Tesseract OCR must be installed and available in your system's PATH.
+> - macOS: `brew install tesseract`
+> - Ubuntu/Debian: `sudo apt install tesseract-ocr`
+> - Windows: Installer for Windows for Tesseract 3.05, Tesseract 4 and Tesseract 5 are available from [Tesseract at UB Mannheim](https://github.com/UB-Mannheim/tesseract/wiki).
+> If PATH is not available, set `TESSERACT_CMD` in `EchoInStone/config.py` to the full path of `tesseract.exe`.
 
 ### Steps
 
@@ -196,6 +199,16 @@ Video analysis settings live in `EchoInStone/config.py`. Common options include:
 - `VIDEO_FRAME_SAMPLING_SECONDS`: Frame sampling interval.
 - `VIDEO_MAX_WORKERS`: Parallel worker count for scene analysis.
 - `VIDEO_MAX_SCENE_SAMPLES`: Maximum frames sampled per scene.
+
+### OCR Configuration
+
+OCR settings live in `EchoInStone/config.py`:
+
+- `OCR_CONFIDENCE_THRESHOLD`: Minimum confidence for Tesseract before fallback.
+- `OCR_USE_PADDLE_FALLBACK`: Enables PaddleOCR fallback if Tesseract fails.
+- `TESSERACT_CMD`: Explicit path to the Tesseract binary when PATH is not set.
+- `MODEL_STORAGE_DIR`: Base directory for AI model downloads.
+- `PADDLEOCR_MODEL_DIR`: Override PaddleOCR model storage location (defaults to `MODEL_STORAGE_DIR/paddleocr`).
 
 ### Operational Guides
 

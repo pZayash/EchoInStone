@@ -16,6 +16,7 @@ SEGMENT_MAX_DURATION = 60       # Maximum segment duration in seconds
 SEGMENT_PAUSE_THRESHOLD = 2.0   # Pause threshold for splitting in seconds
 
 # Video scene analysis configuration
+# Disabled by default — scene detection needs further refinement before practical use
 VIDEO_ANALYSIS_ENABLED = False
 VIDEO_FRAME_SAMPLING_SECONDS = 1.0
 VIDEO_SCENE_DETECTOR_THRESHOLD = 27.0
@@ -48,4 +49,24 @@ VIDEO_PROFILE_SETTINGS = {
 OCR_LANGUAGE = "en"
 OCR_CONFIDENCE_THRESHOLD = 40.0
 OCR_USE_PADDLE_FALLBACK = True
+OCR_VERBOSE_LOGGING_ENABLED = True
 TESSERACT_CMD = None
+MODEL_STORAGE_DIR = "models"
+PADDLEOCR_MODEL_DIR = None
+# Save OCR source images and artifacts (for debugging/QA). Can be disabled for privacy.
+OCR_SAVE_SOURCE_IMAGES_ENABLED = True
+OCR_SOURCE_IMAGES_MAX_PER_SCENE = 10
+OCR_SOURCE_IMAGE_FORMAT = "png"
+# PaddleOCR/PaddlePaddle runtime flags
+PADDLEOCR_ENABLE_PIR_API = False
+
+# Transcriber backend configuration
+TRANSCRIBER_BACKEND = "auto"  # "auto", "transformers", "faster-whisper"
+FASTER_WHISPER_MODEL_SIZE = "large-v3-turbo"
+FASTER_WHISPER_COMPUTE_TYPE = "auto"
+WHISPER_BATCH_SIZE = 24
+
+# Subtitle-first configuration
+SUBTITLE_FIRST_ENABLED = True
+SUBTITLE_PREFERRED_LANGUAGES = ["en", "ru"]
+SUBTITLE_PREFER_MANUAL = True

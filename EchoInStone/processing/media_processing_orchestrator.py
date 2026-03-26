@@ -44,7 +44,7 @@ class MediaProcessingOrchestrator:
             overlapping_segments = []
             scene_text_parts = []
             speakers = set()
-            for speaker, seg_start, seg_end, text in audio_results:
+            for speaker, seg_start, seg_end, text in MediaProcessingOrchestrator._iter_audio_segments(audio_results):
                 if seg_start is None or seg_end is None:
                     continue
                 overlap_start = max(start_time, seg_start)
@@ -84,7 +84,7 @@ class MediaProcessingOrchestrator:
         transitions = []
         previous_speaker = None
         previous_end = None
-        for speaker, start, end, _ in audio_results:
+        for speaker, start, end, _ in MediaProcessingOrchestrator._iter_audio_segments(audio_results):
             if previous_speaker is not None and speaker != previous_speaker:
                 transition_time = start if start is not None else previous_end
                 if transition_time is not None:
@@ -98,6 +98,16 @@ class MediaProcessingOrchestrator:
             previous_speaker = speaker
             previous_end = end
         return transitions
+
+    @staticmethod
+    def _iter_audio_segments(audio_results: list) -> list:
+        valid_segments = []
+        for item in audio_results:
+            if isinstance(item, tuple) and len(item) == 4:
+                valid_segments.append(item)
+            else:
+                logger.debug("Skipping invalid audio result item: %s", item)
+        return valid_segments
 
     @staticmethod
     def _compute_text_overlap(ocr_text: str, audio_text: str) -> dict:

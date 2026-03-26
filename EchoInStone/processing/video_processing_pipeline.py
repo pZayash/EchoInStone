@@ -13,6 +13,7 @@ from ..config import (
 )
 from ..utils import DataSaver
 from .ocr_text_extractor_interface import OCRResult, OCRTextExtractorInterface
+from .tesseract_ocr_text_extractor import TesseractOCRTextExtractor
 from .video_scene_analyzer_interface import SceneSegment, VideoSceneAnalyzerInterface
 
 logger = logging.getLogger(__name__)
@@ -23,6 +24,7 @@ class VideoProcessingPipeline:
                  scene_analyzer: VideoSceneAnalyzerInterface,
                  ocr_extractor: OCRTextExtractorInterface,
                  saver: DataSaver,
+                 job_id: str | None = None,
                  frame_sampling_seconds: float | None = None,
                  max_workers: int | None = None,
                  enable_parallel: bool | None = None,
@@ -30,6 +32,7 @@ class VideoProcessingPipeline:
         self.scene_analyzer = scene_analyzer
         self.ocr_extractor = ocr_extractor
         self.saver = saver
+        self.job_id = job_id
         self.frame_sampling_seconds = (
             frame_sampling_seconds if frame_sampling_seconds is not None else VIDEO_FRAME_SAMPLING_SECONDS
         )
@@ -38,13 +41,16 @@ class VideoProcessingPipeline:
         self.max_scene_samples = max_scene_samples if max_scene_samples is not None else VIDEO_MAX_SCENE_SAMPLES
 
     def analyze(self, video_path: str) -> List[dict]:
+        logger.info("Running video analysis on %s", video_path)
         scenes = self.scene_analyzer.detect_scenes(video_path)
         if not scenes:
             logger.warning("No scenes detected for video analysis.")
             return []
 
         if self.enable_parallel and self.max_workers and self.max_workers > 1:
-            return self._analyze_parallel(video_path, scenes)
+            results = self._analyze_parallel(video_path, scenes)
+            logger.info("Video analysis produced %d scene records.", len(results))
+            return results
 
         cap = cv2.VideoCapture(video_path)
         results: List[dict] = []
@@ -54,6 +60,7 @@ class VideoProcessingPipeline:
         finally:
             cap.release()
 
+        logger.info("Video analysis produced %d scene records.", len(results))
         return results
 
     def save_results(self, filename: str, scenes: List[dict]):
@@ -97,7 +104,8 @@ class VideoProcessingPipeline:
         frames = self._sample_frames(cap, scene)
         representative_frame = frames[0] if frames else None
         description, category = self._describe_scene(representative_frame)
-        ocr_result = self._extract_best_ocr(frames)
+        ocr_extractor = self._get_ocr_extractor(scene.id)
+        ocr_result = self._extract_best_ocr(frames, ocr_extractor)
         record = self._build_scene_record(scene, description, category, ocr_result)
         frames.clear()
         return record
@@ -141,16 +149,40 @@ class VideoProcessingPipeline:
 
         return frames
 
-    def _extract_best_ocr(self, frames: List[np.ndarray]) -> OCRResult:
+    def _extract_best_ocr(
+        self, frames: List[np.ndarray], ocr_extractor: OCRTextExtractorInterface
+    ) -> OCRResult:
         if not frames:
             return OCRResult(text="", confidence=0.0, engine="none")
 
         best_result = OCRResult(text="", confidence=0.0, engine="none")
         for frame in frames:
-            result = self.ocr_extractor.extract_text(frame)
+            result = ocr_extractor.extract_text(frame)
             if result.confidence > best_result.confidence:
                 best_result = result
         return best_result
+
+    def _get_ocr_extractor(self, scene_id: int) -> OCRTextExtractorInterface:
+        if isinstance(self.ocr_extractor, TesseractOCRTextExtractor):
+            if self.enable_parallel:
+                return self._clone_tesseract_extractor(scene_id)
+            self.ocr_extractor.scene_id = scene_id
+            if self.job_id:
+                self.ocr_extractor.job_id = self.job_id
+        return self.ocr_extractor
+
+    def _clone_tesseract_extractor(self, scene_id: int) -> TesseractOCRTextExtractor:
+        extractor = self.ocr_extractor
+        return TesseractOCRTextExtractor(
+            confidence_threshold=extractor.confidence_threshold,
+            language=extractor.language,
+            use_paddle_fallback=extractor.use_paddle_fallback,
+            paddle_model_dir=extractor.paddle_model_dir,
+            verbose_logging=extractor.verbose_logging,
+            data_saver=extractor.data_saver,
+            job_id=self.job_id or extractor.job_id,
+            scene_id=scene_id,
+        )
 
     @staticmethod
     def _describe_scene(frame: Optional[np.ndarray]) -> tuple[str, str]:

@@ -2,6 +2,8 @@
 
 EchoInStone currently processes audio-only content with high accuracy for transcription and speaker diarization. The addition of video scene analysis extends the system to handle visual content, enabling richer analysis of educational videos, presentations, and technical demonstrations. This change introduces computer vision capabilities while maintaining the existing audio processing pipeline.
 
+This updated design also addresses critical issues identified during initial implementation, including OCR configuration problems, PaddleOCR API compatibility issues, insufficient logging for debugging, scattered model storage, and missing scene analysis data in output files.
+
 ## Goals / Non-Goals
 
 ### Goals
@@ -10,6 +12,7 @@ EchoInStone currently processes audio-only content with high accuracy for transc
 - Integrate video analysis seamlessly with existing audio processing
 - Maintain processing performance and accuracy standards
 - Provide structured output formats consistent with existing transcription files
+- Provide verbose OCR diagnostics to explain empty or low-confidence results
 
 ### Non-Goals
 - Real-time video processing (focus on batch/offline processing)
@@ -52,7 +55,15 @@ PySceneDetect provides reliable scene detection based on visual content changes 
 ### OCR Technology Selection
 **Decision**: Primary Tesseract OCR with PaddleOCR as fallback
 
-Tesseract provides reliable OCR for printed text and code, while PaddleOCR offers better performance for complex layouts. Dual implementation allows quality-based selection.
+Tesseract provides reliable OCR for printed text and code, while PaddleOCR offers better performance for complex layouts. Dual implementation allows quality-based selection with robust error handling and API compatibility fixes.
+
+**Key fixes implemented:**
+- Tesseract OCR dependency detection and installation guidance
+- PaddleOCR API compatibility handling for 'cls' argument issues
+- Robust fallback strategy with comprehensive logging
+- Unified model storage location for PaddleX models
+- Verbose OCR diagnostics toggle (`OCR_VERBOSE_LOGGING_ENABLED`, enabled by default)
+- OCR retry strategies for low-confidence results (preprocessing + parameter variants)
 
 **Alternatives considered:**
 - Google Cloud Vision API: External dependency with API costs and rate limits
@@ -80,6 +91,52 @@ Scene analysis outputs will follow the same directory structure and naming conve
 }
 ```
 
+### Save OCR Source Screenshots — Design Details
+When OCR is invoked for a scene or detected region, the system SHALL optionally persist the image artifacts used for OCR so that engineers and reviewers can inspect the exact visual input that produced OCR results.
+
+Storage and naming:
+- Directory: `<output_root>/<job_id>/ocr_screenshots/<scene_id>/`
+- Filenames: `<timestamp>_<engine>_<variant>_<shortid>.png`
+  - `timestamp` — ISO8601-like or epoch milliseconds for the frame capture time
+  - `engine` — `tesseract` | `paddleocr` | `preprocessed`
+  - `variant` — brief descriptor for preprocessing or parameter variant (e.g., `psm3_gray`, `detect_v2`)
+  - `shortid` — short stable identifier (e.g., UUID4 truncated) to avoid name collisions
+
+Companion manifest (per job): `<output_root>/<job_id>/ocr_screenshots/manifest.json`
+Example manifest entry:
+
+```json
+{
+  "job_id": "260121_1405_Modus_Dialecticus",
+  "images": [
+    {
+      "filename": "1643200000000_tesseract_psm3_gray_a1b2.png",
+      "scene_id": 1,
+      "timestamp": 1643200000000,
+      "engine": "tesseract",
+      "variant": "psm3_gray_v1",
+      "preprocessing": ["grayscale","resize_2x"],
+      "ocr_confidence": 0.42,
+      "text_excerpt": "Introduction to Machine Learning"
+    }
+  ]
+}
+```
+
+Configuration:
+- `OCR_SAVE_SOURCE_IMAGES_ENABLED` (bool, default: `true`) — master toggle for writing image artifacts
+- `OCR_SOURCE_IMAGES_MAX_PER_SCENE` (int, default: 10) — limit images to avoid unbounded disk growth
+- `OCR_SOURCE_IMAGE_FORMAT` (string, default: `png`) — image format to write
+
+Integration points:
+- Hook into `OCRTextExtractor` implementations to call `data_saver.save_image_artifact()` whenever an image is sent to an OCR engine or to store preprocessed variants
+- Ensure `data_saver` writes manifest entries atomically or appends safely to avoid corruption under parallel processing
+- Respect configuration toggles before any disk writes
+
+Privacy and disk usage:
+- Default behavior is to enable saving (for debugging/QA). For privacy-sensitive deployments, set `OCR_SAVE_SOURCE_IMAGES_ENABLED=false`
+- Provide retention guidelines and tools to purge old artifacts (optional maintenance job)
+
 ## Risks / Trade-offs
 
 ### Performance Impact
@@ -88,11 +145,11 @@ Scene analysis outputs will follow the same directory structure and naming conve
 
 ### Accuracy Trade-offs
 **Risk**: OCR accuracy may vary with video quality, text size, and font styles
-**Mitigation**: Implement confidence scoring, fallback OCR engines, and quality preprocessing
+**Mitigation**: Implement confidence scoring, fallback OCR engines, quality preprocessing, and retry strategies with diagnostics
 
 ### Dependency Complexity
 **Risk**: New computer vision dependencies increase installation complexity
-**Mitigation**: Use popular, well-maintained libraries with good Python support
+**Mitigation**: Use popular, well-maintained libraries with good Python support and provide comprehensive installation documentation, including Tesseract OCR setup guidance and troubleshooting for common PATH configuration issues
 
 ### Memory Usage
 **Risk**: Video frame processing requires significant memory for large files
@@ -103,14 +160,18 @@ Scene analysis outputs will follow the same directory structure and naming conve
 ### Phase 1: Core Implementation
 - Implement MediaProcessingOrchestrator with separate pipelines
 - Add scene detection and basic description generation
-- Implement OCR text extraction with confidence scoring
+- Implement OCR text extraction with confidence scoring and fallback mechanisms
+- Fix PaddleOCR API compatibility issues and add comprehensive logging
 - Integrate with existing pipeline as optional feature
+- Implement unified model storage for PaddleX models
+- Enable verbose OCR diagnostics by default with `OCR_VERBOSE_LOGGING_ENABLED`
 
 ### Phase 2: Enhancement
 - Add scene-audio timestamp synchronization
 - Optimize performance with processing profiles and parallel execution
 - Improve OCR accuracy for complex layouts and fallback mechanisms
 - Implement comprehensive error handling and progress reporting
+- Add OCR retry strategies and diagnostic logging for empty results
 
 ### Phase 3: Production Readiness
 - Comprehensive testing including visual regression and performance benchmarks

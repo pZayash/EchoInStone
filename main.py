@@ -6,13 +6,13 @@ from urllib.parse import urlparse
 from EchoInStone.utils import configure_logging
 import logging
 
-from pytubefix import YouTube
 from EchoInStone.capture.downloader_factory import get_downloader, get_video_downloader
 from EchoInStone.processing import (
     AudioProcessingPipeline,
     MediaProcessingOrchestrator,
     VideoProcessingPipeline,
     WhisperAudioTranscriber,
+    FasterWhisperAudioTranscriber,
     PyannoteDiarizer,
     SpeakerAligner,
     PySceneDetectVideoSceneAnalyzer,
@@ -28,6 +28,8 @@ from EchoInStone.config import (
     VIDEO_MAX_WORKERS,
     VIDEO_PROCESSING_PROFILE,
     VIDEO_PROFILE_SETTINGS,
+    SUBTITLE_FIRST_ENABLED,
+    TRANSCRIBER_BACKEND,
 )
 
 # Configure logging
@@ -58,11 +60,16 @@ def extract_input_name(echo_input: str) -> str:
     # Handle YouTube URLs
     if "youtube.com" in echo_input or "youtu.be" in echo_input:
         try:
-            # Get video title from YouTube
-            yt = YouTube(echo_input)
-            video_title = yt.title
+            import yt_dlp
+            ydl_opts = {
+                'quiet': True,
+                'js_runtimes': {'node': {}},
+                'remote_components': ['ejs:github']
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                info = ydl.extract_info(echo_input, download=False)
+                video_title = info.get('title', None)
             if video_title:
-                # Clean up the title and use it
                 return video_title
         except Exception as e:
             logger.warning(f"Could not fetch YouTube video title: {e}")
@@ -150,6 +157,45 @@ def get_source_info(echo_input: str) -> str:
 # Test MP3 File = 'https://media.radiofrance-podcast.net/podcast09/25425-13.02.2025-ITEMA_24028677-2025C53905E0006-NET_MFC_D378B90D-D570-44E9-AB5A-F0CC63B05A14-21.mp3'
 
 
+def create_transcriber(backend: str | None = None):
+    """Create a transcriber instance based on backend selection.
+
+    Args:
+        backend: "auto", "transformers", "faster-whisper", or None (uses config default).
+
+    Returns:
+        An AudioTranscriberInterface implementation.
+    """
+    import torch
+
+    if backend is None:
+        backend = TRANSCRIBER_BACKEND
+
+    if backend == "auto":
+        if torch.xpu.is_available():
+            backend = "transformers"
+            logger.info("Auto-selected 'transformers' backend (Intel XPU detected)")
+        else:
+            backend = "faster-whisper"
+            logger.info("Auto-selected 'faster-whisper' backend")
+
+    if backend == "faster-whisper":
+        if FasterWhisperAudioTranscriber is None:
+            logger.warning(
+                "faster-whisper is not installed. Falling back to transformers backend. "
+                "Install with: poetry install --extras faster-whisper"
+            )
+            return WhisperAudioTranscriber()
+        try:
+            return FasterWhisperAudioTranscriber()
+        except ImportError:
+            logger.warning("faster-whisper not available. Falling back to transformers backend.")
+            return WhisperAudioTranscriber()
+
+    # Default: transformers
+    return WhisperAudioTranscriber()
+
+
 @timer
 def main(
     echo_input,
@@ -157,6 +203,8 @@ def main(
     transcription_output,
     enable_video_analysis: bool | None = None,
     scene_output="scene_analysis.json",
+    subtitle_first: bool | None = None,
+    transcriber_backend: str | None = None,
 ):
     """
     Main function to orchestrate the media processing pipeline.
@@ -178,14 +226,18 @@ def main(
     if enable_video_analysis is None:
         enable_video_analysis = VIDEO_ANALYSIS_ENABLED
 
+    # Apply default configuration for subtitle-first if not explicitly set
+    if subtitle_first is None:
+        subtitle_first = SUBTITLE_FIRST_ENABLED
+
     # Initialize components with timestamped output directory
     downloader = get_downloader(echo_input, timestamped_output_dir)
-    transcriber = WhisperAudioTranscriber()
+    transcriber = create_transcriber(transcriber_backend)
     diarizer = PyannoteDiarizer()
     aligner = SpeakerAligner()
     data_saver = DataSaver(output_dir=timestamped_output_dir)
 
-    audio_pipeline = AudioProcessingPipeline(downloader, transcriber, diarizer, aligner, data_saver)
+    audio_pipeline = AudioProcessingPipeline(downloader, transcriber, diarizer, aligner, data_saver, subtitle_first=subtitle_first)
 
     video_pipeline = None
     video_path = None
@@ -254,6 +306,8 @@ if __name__ == "__main__":
     video_group.add_argument("--enable_video_analysis", action="store_true", help="Enable video scene analysis if input is video")
     video_group.add_argument("--disable_video_analysis", action="store_true", help="Disable video scene analysis")
     parser.add_argument("--scene_output", type=str, default="scene_analysis.json", help="Filename for the scene analysis output")
+    parser.add_argument("--disable_subtitle_first", action="store_true", help="Disable subtitle-first extraction for YouTube videos")
+    parser.add_argument("--transcriber_backend", type=str, default=None, choices=["auto", "transformers", "faster-whisper"], help="Transcription backend: auto, transformers, or faster-whisper")
 
     args = parser.parse_args()
     if args.enable_video_analysis:
@@ -263,10 +317,14 @@ if __name__ == "__main__":
     else:
         enable_video_analysis = None
 
+    subtitle_first = None if not args.disable_subtitle_first else False
+
     main(
         args.echo_input,
         args.output_dir,
         args.transcription_output,
         enable_video_analysis,
         args.scene_output,
+        subtitle_first=subtitle_first,
+        transcriber_backend=args.transcriber_backend,
     )

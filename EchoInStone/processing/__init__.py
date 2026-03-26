@@ -15,6 +15,11 @@ from .ocr_text_extractor_interface import OCRTextExtractorInterface, OCRResult
 from .py_scene_detect_video_scene_analyzer import PySceneDetectVideoSceneAnalyzer
 from .tesseract_ocr_text_extractor import TesseractOCRTextExtractor
 
+try:
+    from .faster_whisper_audio_transcriber import FasterWhisperAudioTranscriber
+except ImportError:
+    FasterWhisperAudioTranscriber = None
+
 __all__ = [
     'AudioTranscriberInterface',
     'DiarizerInterface',
@@ -31,5 +36,6 @@ __all__ = [
     'OCRTextExtractorInterface',
     'OCRResult',
     'PySceneDetectVideoSceneAnalyzer',
-    'TesseractOCRTextExtractor'
+    'TesseractOCRTextExtractor',
+    'FasterWhisperAudioTranscriber',
 ]

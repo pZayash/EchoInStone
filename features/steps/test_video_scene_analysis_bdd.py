@@ -1,3 +1,4 @@
+import pytest
 from pytest_bdd import given, scenarios, then, when
 
 from EchoInStone.processing.media_processing_orchestrator import MediaProcessingOrchestrator
@@ -23,7 +24,7 @@ class DummyVideoPipeline:
         return [{"id": 1}]
 
 
-@given("a media orchestrator with video analysis enabled")
+@pytest.fixture
 def media_orchestrator_context():
     audio_pipeline = DummyAudioPipeline()
     video_pipeline = DummyVideoPipeline()
@@ -38,6 +39,11 @@ def media_orchestrator_context():
         "video_pipeline": video_pipeline,
         "video_path": "demo.mp4",
     }
+
+
+@given("a media orchestrator with video analysis enabled")
+def media_orchestrator_context_setup(media_orchestrator_context):
+    return media_orchestrator_context
 
 
 @when("processing input with a video path")

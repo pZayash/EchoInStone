@@ -9,7 +9,6 @@ packages = [
 
 [tool.poetry.dependencies]
 python = "3.12.*"
-pytubefix = "^8.12.1"
 feedparser = "^6.0.11"
 requests = "^2.32.3"
 transformers = "^4.50.0"
@@ -23,6 +22,11 @@ scenedetect = "^0.6.7.1"
 pytesseract = "^0.3.13"
 paddleocr = "^3.3.3"
 paddlepaddle = "^3.3.0"
+yt-dlp = "^2026.3.17"
+faster-whisper = {version = "^1.1.0", optional = true}
+
+[tool.poetry.extras]
+faster-whisper = ["faster-whisper"]
 
 [[tool.poetry.source]]
 name = "pytorch-xpu"

@@ -16,6 +16,7 @@ class PySceneDetectVideoSceneAnalyzer(VideoSceneAnalyzerInterface):
 
     def detect_scenes(self, video_path: str) -> List[SceneSegment]:
         detector = ContentDetector(threshold=self.threshold)
+        logger.info("Detecting scenes for %s with threshold %.2f", video_path, self.threshold)
         try:
             scene_list = detect(video_path, detector)
         except Exception as exc:
@@ -23,6 +24,12 @@ class PySceneDetectVideoSceneAnalyzer(VideoSceneAnalyzerInterface):
             scene_list = []
 
         fps = self._get_fps(video_path)
+        total_frames = self._get_frame_count(video_path)
+        if fps and total_frames:
+            duration = total_frames / fps
+            logger.info("Video metadata: %.2f fps, %d frames (%.2fs)", fps, total_frames, duration)
+        else:
+            logger.info("Video metadata: fps=%s frames=%s", fps, total_frames)
         scenes: List[SceneSegment] = []
         for index, (start, end) in enumerate(scene_list, start=1):
             start_seconds = self._timecode_to_seconds(start, fps)
@@ -39,7 +46,6 @@ class PySceneDetectVideoSceneAnalyzer(VideoSceneAnalyzerInterface):
 
         if not scenes:
             logger.info("No scene boundaries detected; treating entire video as one scene.")
-            total_frames = self._get_frame_count(video_path)
             duration = (total_frames / fps) if fps and total_frames else 0.0
             scenes.append(
                 SceneSegment(
@@ -50,6 +56,7 @@ class PySceneDetectVideoSceneAnalyzer(VideoSceneAnalyzerInterface):
                     end_frame=total_frames,
                 )
             )
+        logger.info("Scene detection produced %d scenes.", len(scenes))
 
         return scenes
 

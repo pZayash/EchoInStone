@@ -149,5 +149,9 @@ desktop.ini
 .supercode/
 .cursor/rules/
 
+# Claude Code: commands and skills are local junctions/symlinks to .cursor (same content; not committed)
+.claude/commands/
+.claude/skills/
+
 
 

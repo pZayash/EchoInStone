@@ -20,6 +20,11 @@
 - Symptom: `extracted_text` is empty with low confidence values.
 - Fix: Use the `quality` profile or increase resolution of the source video.
 
+### PaddleOCR fallback fails
+- Symptom: Logs show "PaddleOCR fallback failed" or empty fallback results.
+- Fix: Ensure `MODEL_STORAGE_DIR` or `PADDLEOCR_MODEL_DIR` is writable and has space.
+- Fix: Upgrade `paddleocr` if API compatibility warnings appear.
+
 ## Diagnostic Tips
 
 - Enable debug logging to capture OCR and scene detection diagnostics.

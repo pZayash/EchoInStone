@@ -6,11 +6,12 @@ from transformers import AutoModelForSpeechSeq2Seq, AutoProcessor, pipeline
 from pydub import AudioSegment
 from .audio_transcriber_interface import AudioTranscriberInterface
 from EchoInStone.utils import timer, log_time
+from EchoInStone.config import WHISPER_BATCH_SIZE
 
 logger = logging.getLogger(__name__)
 
 class WhisperAudioTranscriber(AudioTranscriberInterface):
-    def __init__(self, model_name="openai/whisper-large-v3-turbo"):
+    def __init__(self, model_name="openai/whisper-large-v3-turbo", batch_size=None):
         """Initialize the WhisperAudioTranscriber with the specified model.
 
         Args:
@@ -34,6 +35,8 @@ class WhisperAudioTranscriber(AudioTranscriberInterface):
         else:
             self.device = "cpu"
             self.torch_dtype = torch.float32
+
+        self.batch_size = batch_size if batch_size is not None else WHISPER_BATCH_SIZE
 
         logger.info(f"Using device: {self.device} with dtype: {self.torch_dtype}")
 
@@ -59,7 +62,7 @@ class WhisperAudioTranscriber(AudioTranscriberInterface):
                 device=self.device,
                 #model_kwargs={"attn_implementation": "sdpa"},
                 return_timestamps=True,  # or "word"
-                #batch_size=24,
+                batch_size=self.batch_size,
                 generate_kwargs={"max_new_tokens": 400},
                 chunk_length_s=5,
                 stride_length_s=(1, 1),

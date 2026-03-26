@@ -3,7 +3,7 @@ import logging
 import shutil
 import requests
 from urllib.parse import urlparse
-from pytubefix import YouTube
+import yt_dlp
 
 from .downloader_interface import DownloaderInterface
 
@@ -21,11 +21,17 @@ class VideoDownloader(DownloaderInterface):
             is_url = bool(parsed_url.netloc)
 
             if "youtube.com" in source or "youtu.be" in source:
-                yt = YouTube(source)
-                stream = yt.streams.filter(progressive=True, file_extension="mp4").first()
-                if not stream:
-                    raise RuntimeError("No progressive MP4 stream available for download.")
-                video_file = stream.download(output_path=self.output_dir)
+                ydl_opts = {
+                    'format': 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+                    'outtmpl': os.path.join(self.output_dir, '%(title)s.%(ext)s'),
+                    'quiet': True,
+                    'no_warnings': True,
+                    'js_runtimes': {'node': {}},
+                    'remote_components': ['ejs:github']
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    info = ydl.extract_info(source, download=True)
+                    video_file = ydl.prepare_filename(info)
                 logger.info(f"Video downloaded to {video_file}")
                 return os.path.abspath(video_file)
 
@@ -57,7 +63,14 @@ class VideoDownloader(DownloaderInterface):
     def validate_url(self, source: str) -> bool:
         try:
             if "youtube.com" in source or "youtu.be" in source:
-                YouTube(source)
+                ydl_opts = {
+                    'quiet': True, 
+                    'no_warnings': True,
+                    'js_runtimes': {'node': {}},
+                    'remote_components': ['ejs:github']
+                }
+                with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                    ydl.extract_info(source, download=False)
                 return True
 
             parsed_url = urlparse(source)

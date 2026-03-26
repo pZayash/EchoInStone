@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -m pytest tests/test_transcriber_backends.py -v --no-header --override-ini=\"addopts=\")",
+      "Bash(poetry env:*)",
+      "Bash(poetry lock:*)",
+      "Bash(poetry install:*)"
+    ]
+  }
+}
