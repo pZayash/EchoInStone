@@ -8,7 +8,9 @@ test_output/
 app.log
 commit_message.txt
 *.mp3
+*.mp4
 *.wav
+*.log
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
