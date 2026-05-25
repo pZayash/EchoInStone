@@ -1,5 +1,12 @@
-## ADDED Requirements
+# video-scene-analysis Specification
 
+## Purpose
+
+Extend EchoInStone beyond audio-only processing: detect video scenes, generate scene
+descriptions, extract on-screen text via OCR (Tesseract with PaddleOCR fallback), and
+integrate outputs with the existing transcription pipeline—including configurable
+video analysis, verbose OCR diagnostics, and optional OCR source image artifacts.
+## Requirements
 ### Requirement: Video Scene Detection
 The system SHALL analyze video files and automatically detect scene boundaries based on visual content changes.
 
@@ -167,6 +174,7 @@ The system SHALL attempt configurable OCR quality improvements when initial OCR 
 - **WHEN** all retry strategies fail to improve OCR output
 - **THEN** the system returns the best available result (including empty text)
 - **AND** logs a structured summary of all attempted strategies and outcomes
+
 ### Requirement: Save OCR source screenshots
 The system SHALL save the image(s) (full-frame or cropped region) that were used as input for OCR attempts (Tesseract, PaddleOCR, and any preprocessing variants) into the processing output directory so that extraction attempts can be inspected and evaluated.
 
@@ -193,8 +201,6 @@ The system SHALL save the image(s) (full-frame or cropped region) that were used
 - **WHEN** processing completes
 - **THEN** all saved OCR source images and their manifest files are usable for offline analysis of OCR quality and scene-level inspection
 
-## MODIFIED Requirements
-
 ### Requirement: Video Analysis Configuration
 The system SHALL provide configurable options to enable or disable video scene analysis functionality via the `VIDEO_ANALYSIS_ENABLED` setting, and video analysis SHALL be enabled by default.
 
@@ -212,3 +218,4 @@ The system SHALL provide configurable options to enable or disable video scene a
 - **WHEN** no configuration is specified
 - **THEN** video analysis is enabled by default
 - **AND** users can explicitly disable video analysis functionality
+
