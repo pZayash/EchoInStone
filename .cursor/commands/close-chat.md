@@ -2,7 +2,7 @@
 name: /close-chat
 id: close-chat
 category: Workflow
-description: "Закрытие сессии: открытые вопросы → archive OpenSpec → очистка → коммит touched"
+description: "Автокоммит touched сессии при отсутствии неясностей; иначе archive/очистка/отчёт"
 ---
 
 Следуй навыку [.cursor/skills/close-chat/SKILL.md](../../.cursor/skills/close-chat/SKILL.md) полностью.

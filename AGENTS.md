@@ -9,4 +9,4 @@ Always use Poetry to run Python commands in this project (e.g., `poetry run pyth
 
 Перед proposal: навык **explore** (`.cursor/skills/explore/`, команда `/explore`) — исследование без правок `EchoInStone/**`. Далее `openspec-propose` → `openspec-apply-change` → `openspec-archive-change`. См. [openspec/changes/README.md](openspec/changes/README.md).
 
-В конце сессии: **close-chat** (`/close-chat`) — открытые вопросы, archive, очистка, коммит только touched через `/git-summarize-and-commit`. Коммиты — только с явного разрешения пользователя.
+В конце сессии: **close-chat** (`/close-chat`) — автокоммит touched, если нет неясностей (иначе отчёт); перед этим archive/очистка. Вне `/close-chat` коммиты — только с явного разрешения пользователя.

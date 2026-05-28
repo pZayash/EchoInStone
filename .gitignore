@@ -4,6 +4,7 @@ EchoInStone/config_private.py
 # transcriptions test, output, logs and ide artifacts
 results/
 results_test/
+diarization/
 test_output/
 app.log
 commit_message.txt
