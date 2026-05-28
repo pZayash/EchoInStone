@@ -15,8 +15,8 @@ argument-hint: "YOUTUBE_URL [--sub-lang en-orig,en|ru,...]"
 
 ## Зависимости
 
-- **sandbox-oneliner** (`.cursor/skills/sandbox-oneliner/`) — однострочники в `agent-sandbox` через `sandbox-run`.
-- На хосте YouTube часто отвечает **HTTP 429**; извлечение — **только через sandbox**, если пользователь не настаивает на хосте.
+- **sandbox-oneliner** (`.cursor/skills/sandbox-oneliner/`) — **все** однострочники и быстрые `python3`/`node`/`bash` сниппеты в `agent-sandbox` через **`sandbox-run`** (см. [AGENTS.md](../../../AGENTS.md)).
+- На хосте YouTube часто отвечает **HTTP 429**; yt-dlp и постобработка stdout — **только sandbox**. На хосте для сохранения файла допустим только **редирект** (`mkdir`, `> path`), без `python -c`, heredoc и без `poetry run python -c`.
 
 ## Чек-лист
 
@@ -39,19 +39,28 @@ argument-hint: "YOUTUBE_URL [--sub-lang en-orig,en|ru,...]"
 
 Ручных субтитров нет → в ответе указать **авто-субтитры**.
 
-## 2. Извлечение (sandbox)
+## 2. Извлечение и сохранение (только sandbox)
 
-Путь к скрипту **от корня репозитория**:
+Скрипты **от корня репозитория** (копируются в sandbox через `-Files`):
 
-`.cursor/skills/youtube-video-summary/scripts/extract_transcript.py`
+| Скрипт | Назначение |
+|--------|------------|
+| `scripts/extract_transcript.py` | yt-dlp + VTT; `--save-format` → готовый файл для `diarization/transcripts/` |
+| `scripts/format_saved_transcript.py` | pipe: stdout extract (без `--save-format`) → заголовок файла (если нужен двухшаговый вариант) |
 
-```text
-sandbox-run -Files ".cursor/skills/youtube-video-summary/scripts/extract_transcript.py" -Command 'python3 extract_transcript.py "YOUTUBE_URL" --sub-lang en-orig,en' 2>/dev/null
+**Одна команда** — извлечь и записать на хост (подставить `VIDEO_ID`, URL, `--sub-lang`):
+
+```bash
+mkdir -p diarization/transcripts
+sandbox-run \
+  -Files ".cursor/skills/youtube-video-summary/scripts/extract_transcript.py" \
+  -Command 'python3 extract_transcript.py "YOUTUBE_URL" --sub-lang en-orig,en --save-format 2>/dev/null' \
+  > "diarization/transcripts/VIDEO_ID.en.txt"
 ```
 
-Подставить URL и `--sub-lang`. Stderr на хосте — в `/dev/null`, чтобы предупреждения yt-dlp не попали в файл.
+Только превью в чат (без файла): тот же `sandbox-run`, но без редиректа; stderr yt-dlp глушить **внутри** sandbox (`2>/dev/null` в `-Command`), не обязательно на хосте.
 
-При сбое: проверить контейнер (см. sandbox-oneliner), один retry. Не падать на host yt-dlp без явной просьбы.
+При сбое: контейнер `agent-sandbox` (см. sandbox-oneliner), один retry. Не вызывать yt-dlp и не гонять `python3 -c` / `poetry run python -c` на хосте.
 
 **Нет субтитров** — скрипт печатает `NO_SUBTITLES|true` и exit code `2` → перейти к §3 (EchoInStone).  
 Другая ошибка sandbox (сеть, 429) — один retry; если снова неудача, можно §3 или спросить пользователя.
@@ -90,11 +99,7 @@ poetry run python .cursor/skills/youtube-video-summary/scripts/export_diarized_t
 
 ## 4. Сохранение (субтитры)
 
-```text
-diarization/transcripts/{VIDEO_ID}.{lang_hint}.txt
-```
-
-Создать `diarization/transcripts/` при отсутствии. Формат файла:
+Путь: `diarization/transcripts/{VIDEO_ID}.{lang_hint}.txt` — см. §2 (pipe + редирект). Формат файла:
 
 ```text
 # {TITLE}
@@ -135,6 +140,7 @@ diarization/transcripts/{VIDEO_ID}.{lang_hint}.txt
 ## Не делать
 
 - Не монтировать проект в docker ради yt-dlp.
+- Не вызывать на хосте `python3 -c`, heredoc-Python, `poetry run python -c` для извлечения/форматирования транскрипта — только `sandbox-run`.
 - Не коммитить `diarization/transcripts/` и `results/` без просьбы пользователя.
 - Не запускать EchoInStone pipeline, если sandbox уже дал нормальный транскрипт (избыточно).
 
@@ -143,4 +149,5 @@ diarization/transcripts/{VIDEO_ID}.{lang_hint}.txt
 | Файл | Назначение |
 |------|------------|
 | [scripts/extract_transcript.py](scripts/extract_transcript.py) | VTT в sandbox; `NO_SUBTITLES\|true` + exit 2 |
-| [scripts/export_diarized_txt.py](scripts/export_diarized_txt.py) | `speaker_transcriptions.json` → `diarization/transcripts/*.txt` |
+| [scripts/format_saved_transcript.py](scripts/format_saved_transcript.py) | stdout extract → заголовок файла для `diarization/transcripts/` |
+| [scripts/export_diarized_txt.py](scripts/export_diarized_txt.py) | `speaker_transcriptions.json` → `diarization/transcripts/*.txt` (Poetry на хосте) |

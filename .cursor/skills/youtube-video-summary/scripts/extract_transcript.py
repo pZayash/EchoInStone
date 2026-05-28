@@ -126,6 +126,11 @@ def main() -> None:
         default="en-orig,en",
         help="yt-dlp subtitle languages (comma-separated)",
     )
+    parser.add_argument(
+        "--save-format",
+        action="store_true",
+        help="Emit diarization/transcripts/*.txt layout (for host redirect)",
+    )
     args = parser.parse_args()
     vid = video_id(args.url)
 
@@ -136,6 +141,17 @@ def main() -> None:
     text = merge_rolling(parse_vtt(vtt_path))
     word_count = len(text.split())
 
+    body = to_paragraphs(text)
+    if args.save_format:
+        print(f"# {title}")
+        print(f"# Channel: {channel} | Duration: {duration}s | Words: {word_count}")
+        print(f"# URL: https://www.youtube.com/watch?v={vid}")
+        print(f"# Source: YouTube auto-captions ({args.sub_lang})")
+        print()
+        print("---TRANSCRIPT---")
+        print(body)
+        return
+
     print(f"VIDEO_ID|{vid}")
     print(f"TITLE|{title}")
     print(f"CHANNEL|{channel}")
@@ -143,7 +159,7 @@ def main() -> None:
     print(f"SUB_LANG|{args.sub_lang}")
     print(f"WORDS|{word_count}")
     print("---TRANSCRIPT---")
-    print(to_paragraphs(text))
+    print(body)
 
 
 if __name__ == "__main__":

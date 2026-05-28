@@ -14,7 +14,7 @@ sandbox-run -Command 'python3 -c "print(1+1)"'
 sandbox-run -Files data.csv -Command 'python3 -c "print(open(\"data.csv\").read()[:80])"'
 ```
 
-Не вызывать `poetry run python -c ...` и не создавать временные `.py` на хосте для таких задач: `sandbox-run` можно один раз allowlist'ить в Cursor вместо подтверждения каждого однострочника. Код EchoInStone, тесты и pipeline — по-прежнему через Poetry на хосте.
+Не вызывать `poetry run python -c ...`, `python3 -c ...` и heredoc-Python на хосте для таких задач: `sandbox-run` можно один раз allowlist'ить в Cursor вместо подтверждения каждого однострочника. Запись результата на диск — редирект stdout (`> file`), без интерпретатора на хосте. Пример: [youtube-video-summary](.cursor/skills/youtube-video-summary/SKILL.md) §2 (`extract_transcript.py --save-format` в sandbox, `> diarization/transcripts/…`). Код EchoInStone, тесты и pipeline — по-прежнему через Poetry на хосте.
 
 ## OpenSpec workflow
 
