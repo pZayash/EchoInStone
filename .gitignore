@@ -156,5 +156,8 @@ desktop.ini
 .claude/commands/
 .claude/skills/
 
+# Симлинк на глобальный ~/.claude/skills/sandbox-oneliner (см. AGENTS.md)
+.cursor/skills/sandbox-oneliner
+
 
 

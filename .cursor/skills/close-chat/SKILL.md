@@ -38,7 +38,7 @@ argument-hint: "--dry-run | --skip 0|1|2|3 (опционально)"
 
 ## Шаг 1 — OpenSpec (кратко)
 
-`openspec` — **без Poetry**, из корня репозитория. Запасной вариант: `sandbox-run` + `openspec list --json` ([sandbox-oneliner](~/.claude/skills/sandbox-oneliner/)); archive — на хосте (нужен git).
+`openspec` — **без Poetry**, из корня репозитория. Запасной вариант: `sandbox-run` + `openspec list --json` ([sandbox-oneliner](.cursor/skills/sandbox-oneliner/)); archive — на хосте (нужен git).
 
 - `openspec list --json` — активные changes.
 - Готовый change без неясностей → [openspec-archive-change](../openspec-archive-change/SKILL.md) (sync delta, `openspec archive <name> -y`).

@@ -15,7 +15,7 @@ argument-hint: "YOUTUBE_URL [--sub-lang en-orig,en|ru,...]"
 
 ## Зависимости
 
-- **sandbox-oneliner** (`~/.claude/skills/sandbox-oneliner/`) — однострочники в `agent-sandbox` через `sandbox-run`.
+- **sandbox-oneliner** (`.cursor/skills/sandbox-oneliner/`) — однострочники в `agent-sandbox` через `sandbox-run`.
 - На хосте YouTube часто отвечает **HTTP 429**; извлечение — **только через sandbox**, если пользователь не настаивает на хосте.
 
 ## Чек-лист
