@@ -2,13 +2,13 @@
 name: /youtube-summary
 id: youtube-summary
 category: Workflow
-description: "Транскрипт YouTube (sandbox + yt-dlp) и структурированное резюме ролика"
+description: "Транскрипт YouTube через echoinstone и структурированное резюме ролика"
 ---
 
 Следуй навыку [.cursor/skills/youtube-video-summary/SKILL.md](../../.cursor/skills/youtube-video-summary/SKILL.md) полностью.
 
-**Вход:** аргумент после `/youtube-summary` — URL YouTube (или id). Опционально язык субтитров через `--sub-lang`.
+**Вход:** аргумент после `/youtube-summary` — URL YouTube (или id).
 
-**Sandbox:** извлечение и форматирование — только `sandbox-run` (см. SKILL §2); на хосте — `mkdir` и `> file`, без `python -c`.
+**CLI:** `echoinstone "URL"` (глобальный шорткат; параметры — [docs/ai/echoinstone-cli.md](../../docs/ai/echoinstone-cli.md)). Без однострочников и без `sandbox-run` для транскрипта.
 
-**Без субтитров:** скилл переключается на `poetry run python main.py … --disable_subtitle_first` (Whisper + pyannote).
+**Полная диаризация:** `echoinstone "URL" --disable_subtitle_first` (Whisper + pyannote).

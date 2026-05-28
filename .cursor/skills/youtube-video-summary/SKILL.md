@@ -1,12 +1,10 @@
 ---
 name: youtube-video-summary
 description: >-
-  Извлекает транскрипт YouTube (авто-субтитры через yt-dlp в docker sandbox;
-  при отсутствии субтитров — Whisper + диаризация через EchoInStone main.py),
-  сохраняет в diarization/transcripts/ и выдаёт структурированное резюме на языке
-  пользователя. Триггеры: ссылка на YouTube, «ролик», «видео», «резюме ролика»,
-  «извлеки текст», вопросы по содержанию видео.
-argument-hint: "YOUTUBE_URL [--sub-lang en-orig,en|ru,...]"
+  Транскрипт и резюме YouTube через EchoInStone (echoinstone): subtitle-first
+  или Whisper + диаризация. Сохранение в diarization/transcripts/. Триггеры:
+  ссылка на YouTube, «ролик», «видео», «резюме ролика», вопросы по содержанию.
+argument-hint: "YOUTUBE_URL"
 ---
 
 # YouTube → транскрипт → резюме
@@ -15,110 +13,81 @@ argument-hint: "YOUTUBE_URL [--sub-lang en-orig,en|ru,...]"
 
 ## Зависимости
 
-- **sandbox-oneliner** (`.cursor/skills/sandbox-oneliner/`) — **все** однострочники и быстрые `python3`/`node`/`bash` сниппеты в `agent-sandbox` через **`sandbox-run`** (см. [AGENTS.md](../../../AGENTS.md)).
-- На хосте YouTube часто отвечает **HTTP 429**; yt-dlp и постобработка stdout — **только sandbox**. На хосте для сохранения файла допустим только **редирект** (`mkdir`, `> path`), без `python -c`, heredoc и без `poetry run python -c`.
+- **EchoInStone CLI** — глобальный шорткат **`echoinstone`** (bash / cmd / PowerShell) или `poetry run python main.py` из корня репозитория. Параметры и примеры: [docs/ai/echoinstone-cli.md](../../../docs/ai/echoinstone-cli.md), [README.md](../../../README.md).
+- **Не использовать** `sandbox-run`, `python -c`, heredoc и отдельные yt-dlp-однострочники для транскрипта — только пайплайн проекта (см. [AGENTS.md](../../../AGENTS.md)).
 
 ## Чек-лист
 
 ```
 - [ ] 1. Распарсить URL → 11-символьный video id
-- [ ] 2. Быстрый путь: extract_transcript.py в sandbox
-- [ ] 3. Если NO_SUBTITLES / нет VTT → EchoInStone (транскрипция + диаризация)
-- [ ] 4. Сохранить diarization/transcripts/{VIDEO_ID}.{lang|diarized}.txt
+- [ ] 2. echoinstone "URL" (subtitle-first по умолчанию)
+- [ ] 3. При необходимости полной диаризации: --disable_subtitle_first
+- [ ] 4. Экспорт → diarization/transcripts/{VIDEO_ID}.diarized.txt
 - [ ] 5. Ответ: метаданные + резюме (язык сообщения пользователя) + путь к файлу
-- [ ] 6. При follow-up — читать сохранённый файл, не качать заново
+- [ ] 6. При follow-up — читать сохранённый файл, не гонять echoinstone заново
 ```
 
-## 1. Язык субтитров
+## 1. Запуск EchoInStone
 
-| Ситуация | `--sub-lang` |
-|----------|----------------|
-| По умолчанию (EN) | `en-orig,en` |
-| Резюме по-русски, ролик на EN | субтитры `en-orig,en`, резюме на русском |
-| Нужны русские субтитры | `ru,en-orig,en` |
-
-Ручных субтитров нет → в ответе указать **авто-субтитры**.
-
-## 2. Извлечение и сохранение (только sandbox)
-
-Скрипты **от корня репозитория** (копируются в sandbox через `-Files`):
-
-| Скрипт | Назначение |
-|--------|------------|
-| `scripts/extract_transcript.py` | yt-dlp + VTT; `--save-format` → готовый файл для `diarization/transcripts/` |
-| `scripts/format_saved_transcript.py` | pipe: stdout extract (без `--save-format`) → заголовок файла (если нужен двухшаговый вариант) |
-
-**Одна команда** — извлечь и записать на хост (подставить `VIDEO_ID`, URL, `--sub-lang`):
+Из **любого каталога** (пути в аргументах разрешаются обёрткой):
 
 ```bash
-mkdir -p diarization/transcripts
-sandbox-run \
-  -Files ".cursor/skills/youtube-video-summary/scripts/extract_transcript.py" \
-  -Command 'python3 extract_transcript.py "YOUTUBE_URL" --sub-lang en-orig,en --save-format 2>/dev/null' \
-  > "diarization/transcripts/VIDEO_ID.en.txt"
+echoinstone "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-Только превью в чат (без файла): тот же `sandbox-run`, но без редиректа; stderr yt-dlp глушить **внутри** sandbox (`2>/dev/null` в `-Command`), не обязательно на хосте.
-
-При сбое: контейнер `agent-sandbox` (см. sandbox-oneliner), один retry. Не вызывать yt-dlp и не гонять `python3 -c` / `poetry run python -c` на хосте.
-
-**Нет субтитров** — скрипт печатает `NO_SUBTITLES|true` и exit code `2` → перейти к §3 (EchoInStone).  
-Другая ошибка sandbox (сеть, 429) — один retry; если снова неудача, можно §3 или спросить пользователя.
-
-## 3. Fallback: транскрипция + диаризация (EchoInStone)
-
-Когда у ролика **нет** авто-/ручных субтитров (или sandbox не смог их скачать).
-
-Из **корня репозитория**, через Poetry (см. [README.md](../../../README.md)):
-
-```bash
-poetry run python main.py "YOUTUBE_URL" --disable_subtitle_first
-```
-
-- `--disable_subtitle_first` — не использовать subtitle-first даже если yt-dlp на хосте что-то найдёт; нужны **Whisper + pyannote** и спикеры.
+- По умолчанию **subtitle-first** для YouTube (быстро, если есть субтитры).
 - Выход: `results/{yyMMdd_HHmm}_{название}/speaker_transcriptions.json` (+ `.csv`).
-- Долго, нужны `ffmpeg`, зависимости Poetry, `HUGGING_FACE_TOKEN` в `EchoInStone/config.py` (pyannote).
-- Предупредить пользователя о времени и железе (GPU/XPU по README).
+- Предупредить о времени и железе, если понадобится `--disable_subtitle_first` (Whisper + pyannote, `HUGGING_FACE_TOKEN`, `ffmpeg`).
 
-Найти свежий результат (пример):
+Найти свежий результат:
 
 ```bash
 ls -td results/*/speaker_transcriptions.json 2>/dev/null | head -1
 ```
 
-Экспорт в `diarization/transcripts/` для резюме и Q&A:
+### Когда добавить флаги
+
+| Задача | Команда |
+|--------|---------|
+| Обычный ролик / резюме | `echoinstone "URL"` |
+| Нужны спикеры, субтитров нет или subtitle-first не подошёл | `echoinstone "URL" --disable_subtitle_first` |
+| Свой каталог результатов | `echoinstone "URL" --output_dir diarization/run-VIDEO_ID` |
+| Анализ сцен/OCR | `echoinstone "URL" --enable_video_analysis` |
+
+Полная таблица аргументов — [docs/ai/echoinstone-cli.md](../../../docs/ai/echoinstone-cli.md).
+
+## 2. Экспорт в `diarization/transcripts/`
+
+Из **корня репозитория** (Poetry):
 
 ```bash
 poetry run python .cursor/skills/youtube-video-summary/scripts/export_diarized_txt.py \
   "results/.../speaker_transcriptions.json" \
-  "diarization/transcripts/{VIDEO_ID}.diarized.txt" \
-  --url "YOUTUBE_URL"
+  "diarization/transcripts/VIDEO_ID.diarized.txt" \
+  --url "https://www.youtube.com/watch?v=VIDEO_ID"
 ```
 
-В резюме указать источник: **Whisper + pyannote diarization** (со спикерами `[SPEAKER_XX]`, если есть).
-
-## 4. Сохранение (субтитры)
-
-Путь: `diarization/transcripts/{VIDEO_ID}.{lang_hint}.txt` — см. §2 (pipe + редирект). Формат файла:
+Формат файла:
 
 ```text
-# {TITLE}
-# Channel: {CHANNEL} | Duration: {DURATION_SEC}s | Words: {WORDS}
-# URL: https://www.youtube.com/watch?v={VIDEO_ID}
-# Source: YouTube auto-captions ({SUB_LANG})
+# Source: EchoInStone (Whisper + pyannote diarization)
+# URL: https://www.youtube.com/watch?v=VIDEO_ID
+# Input: results/.../speaker_transcriptions.json
 
 ---TRANSCRIPT---
-(тело после маркера из stdout)
+[SPEAKER_00] …
 ```
 
-## 5. Резюме (обязательный результат)
+В резюме указать источник: **subtitle-first** или **Whisper + pyannote** (по тому, что реально использовал пайплайн; при сомнении — смотреть логи `app.log` / вывод `echoinstone`).
+
+## 3. Резюме (обязательный результат)
 
 Язык резюме = **язык сообщения пользователя**.
 
 ```markdown
 ## {Title}
 
-**Канал:** … · **Длительность:** … · **Источник:** авто-субтитры *или* Whisper + диаризация …
+**Канал:** … · **Длительность:** … · **Источник:** EchoInStone (subtitle-first / Whisper + диаризация)
 
 ### О чём
 3–6 конкретных буллетов.
@@ -127,27 +96,26 @@ poetry run python .cursor/skills/youtube-video-summary/scripts/export_diarized_t
 Главные выводы, с которыми можно спорить или уточнять.
 
 ### Ограничения
-- Возможные ошибки распознавания.
-- Спонсорские вставки / призывы — кратко, если есть.
+- Возможные ошибки распознавания / субтитров.
+- Спонсорские вставки — кратко, если есть.
 
 **Файл:** `diarization/transcripts/…` — можно задавать вопросы по содержанию.
 ```
 
-## 6. Вопросы позже
+## 4. Вопросы позже
 
-Читать сохранённый транскрипт. Повторное скачивание — только по запросу «обнови транскрипт».
+Читать сохранённый транскрипт. Повторный `echoinstone` — только по запросу «обнови транскрипт».
 
 ## Не делать
 
-- Не монтировать проект в docker ради yt-dlp.
-- Не вызывать на хосте `python3 -c`, heredoc-Python, `poetry run python -c` для извлечения/форматирования транскрипта — только `sandbox-run`.
+- Не вызывать `sandbox-run`, `extract_transcript.py`, yt-dlp-однострочники для YouTube-транскрипта.
+- Не использовать `python3 -c`, heredoc-Python, `poetry run python -c` для извлечения/форматирования текста ролика.
 - Не коммитить `diarization/transcripts/` и `results/` без просьбы пользователя.
-- Не запускать EchoInStone pipeline, если sandbox уже дал нормальный транскрипт (избыточно).
+- Не запускать `--disable_subtitle_first`, если subtitle-first уже дал пригодный `speaker_transcriptions.json`.
 
-## Скрипты
+## Вспомогательные скрипты
 
 | Файл | Назначение |
 |------|------------|
-| [scripts/extract_transcript.py](scripts/extract_transcript.py) | VTT в sandbox; `NO_SUBTITLES\|true` + exit 2 |
-| [scripts/format_saved_transcript.py](scripts/format_saved_transcript.py) | stdout extract → заголовок файла для `diarization/transcripts/` |
-| [scripts/export_diarized_txt.py](scripts/export_diarized_txt.py) | `speaker_transcriptions.json` → `diarization/transcripts/*.txt` (Poetry на хосте) |
+| [scripts/export_diarized_txt.py](scripts/export_diarized_txt.py) | `speaker_transcriptions.json` → `diarization/transcripts/*.txt` |
+| [scripts/extract_transcript.py](scripts/extract_transcript.py) | **Устарело для агентов** — только VTT в sandbox; не использовать вместо `echoinstone` |

@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Download YouTube auto-captions and print a de-duplicated transcript on stdout."""
+"""Download YouTube auto-captions and print a de-duplicated transcript on stdout.
+
+Deprecated for AI agents: use ``echoinstone "<url>"`` (see docs/ai/echoinstone-cli.md).
+Do not invoke via sandbox-run for /youtube-summary; EchoInStone subtitle-first covers this.
+"""
 from __future__ import annotations
 
 import argparse

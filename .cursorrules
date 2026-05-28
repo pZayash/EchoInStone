@@ -6,6 +6,7 @@
 - Always use `poetry run` prefix when running Python commands, tests, or scripts
 - Example: `poetry run python main.py ...` or `poetry run pytest`
 - The project uses Poetry for dependency management
+- For media/YouTube/transcription from agents: use global `echoinstone` CLI (not sandbox one-liners). See `docs/ai/echoinstone-cli.md` and `AGENTS.md`
 
 ## Git Commit Messages
 - When asked to create a commit message, write it to `commit_message.txt` file in the project root

@@ -71,12 +71,25 @@ HUGGING_FACE_TOKEN = "your_token_here"
 
 ## Usage
 
-### Basic Example
+### CLI shortcut (recommended)
 
-To transcribe and diarize a YouTube video, you can run the following command:
+If `C:\!Pavl0\.path` is on your `PATH`, use the global wrapper (bash, cmd, PowerShell):
 
 ```bash
-poetry run python main.py <audio_input_url>
+echoinstone "<audio_input_url_or_path>"
+```
+
+Same as `poetry run python main.py` from this repository. Wrappers resolve the first positional argument and `--output_dir` relative to your current directory. See [docs/ai/echoinstone-cli.md](docs/ai/echoinstone-cli.md) for agent-oriented notes (no one-off yt-dlp snippets for transcription).
+
+Related: `echoinstone-test` (pytest), `echoinstone-bench` (transcriber benchmark).
+
+### Basic Example
+
+To transcribe and diarize a YouTube video:
+
+```bash
+echoinstone "https://www.youtube.com/watch?v=plZRCMx_Jd8"
+# or: poetry run python main.py <audio_input_url>
 ```
 
 - `<audio_input_url>`: The URL of the audio input (YouTube, podcast, or direct audio file).
@@ -97,9 +110,14 @@ poetry run python main.py <audio_input_url>
 
 ### Examples
 
-- **Transcribe and diarize a YouTube video**:
+- **Transcribe and diarize a YouTube video** (subtitle-first by default):
   ```bash
-  poetry run python main.py "https://www.youtube.com/watch?v=plZRCMx_Jd8"
+  echoinstone "https://www.youtube.com/watch?v=plZRCMx_Jd8"
+  ```
+
+- **Force Whisper + diarization** (skip YouTube subtitles):
+  ```bash
+  echoinstone "https://www.youtube.com/watch?v=plZRCMx_Jd8" --disable_subtitle_first
   ```
 
 - **Transcribe and diarize a podcast**:
@@ -212,6 +230,7 @@ OCR settings live in `EchoInStone/config.py`:
 
 ### Operational Guides
 
+- [docs/ai/echoinstone-cli.md](docs/ai/echoinstone-cli.md): `echoinstone` shortcut, CLI flags, agent workflow (YouTube summaries).
 - `video_processing_runbook.md`: Troubleshooting video processing failures.
 - `video_ocr_guide.md`: Tips for improving OCR accuracy.
 

@@ -47,6 +47,11 @@ EchoInStone is a comprehensive audio processing tool designed to transcribe, dia
 
 ## Project Conventions
 
+### CLI and agents
+
+- Run the pipeline via global **`echoinstone`** (PATH: `C:\!Pavl0\.path`) or `poetry run python main.py` — not ad-hoc yt-dlp/sandbox one-liners for transcription.
+- Flags and YouTube summary workflow: [docs/ai/echoinstone-cli.md](../docs/ai/echoinstone-cli.md), [AGENTS.md](../AGENTS.md).
+
 ### Code Style
 
 **Python Standards:**
