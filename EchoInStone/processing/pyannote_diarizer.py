@@ -1,7 +1,9 @@
+import logging
+
 from pyannote.audio import Pipeline
 from pyannote.audio.pipelines.utils.hook import ProgressHook
-import torch
-import logging
+
+from ..utils.torch_device import resolve_torch_device
 from .diarizer_interface import DiarizerInterface
 
 # Import HF Token 
@@ -23,8 +25,7 @@ class PyannoteDiarizer(DiarizerInterface):
                 "pyannote/speaker-diarization-3.1",
                 use_auth_token=HUGGING_FACE_TOKEN
             )
-            # Move the pipeline to GPU (if available)
-            device = torch.device("xpu") # torch.device("mps" if torch.backends.mps.is_available() else "cuda" if torch.cuda.is_available() else "cpu")
+            device = resolve_torch_device()
             self.pipeline.to(device)
             logger.info(f"Diarization pipeline loaded and set to use {device}.")
         except Exception as e:
