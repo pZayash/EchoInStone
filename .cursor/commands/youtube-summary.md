@@ -12,3 +12,5 @@ description: "Транскрипт YouTube через echoinstone и струк�
 **CLI:** `echoinstone "URL"` → читать `results/…/speaker_transcriptions.csv`. Без `export_diarized_txt.py`, однострочников и `sandbox-run` для транскрипта. Параметры — [docs/ai/echoinstone-cli.md](../../docs/ai/echoinstone-cli.md).
 
 **Полная диаризация:** `echoinstone "URL" --disable_subtitle_first` (Whisper + pyannote).
+
+**В конце ответа:** блок «Вопросы для углубления» (4–6 штук, NotebookLM-style) — см. скилл §3.
