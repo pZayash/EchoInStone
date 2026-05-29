@@ -52,6 +52,9 @@ dist/
 # Customized
 checkpoints/
 
+# Локальные снимки сессий (навык handoff) — в git не коммитить
+handoffs/
+
 # Distribution / packaging
 .Python
 build/
