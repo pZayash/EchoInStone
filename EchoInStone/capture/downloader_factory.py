@@ -32,11 +32,12 @@ def get_video_downloader(url: str, output_dir: str) -> DownloaderInterface | Non
     video_extensions = (".mp4", ".webm", ".mkv", ".avi", ".mov")
     if "youtube.com" in url or "youtu.be" in url:
         return VideoDownloader(output_dir=output_dir)
-    if url.lower().endswith(video_extensions):
-        return VideoDownloader(output_dir=output_dir)
     if os.path.isfile(url) and url.lower().endswith(video_extensions):
         return VideoDownloader(output_dir=output_dir)
     parsed_url = urlparse(url)
-    if bool(parsed_url.netloc) and parsed_url.path.lower().endswith(video_extensions):
+    if parsed_url.netloc and (
+        url.lower().endswith(video_extensions)
+        or parsed_url.path.lower().endswith(video_extensions)
+    ):
         return VideoDownloader(output_dir=output_dir)
     return None
