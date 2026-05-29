@@ -9,6 +9,6 @@ description: "Транскрипт YouTube через echoinstone и струк�
 
 **Вход:** аргумент после `/youtube-summary` — URL YouTube (или id).
 
-**CLI:** `echoinstone "URL"` (глобальный шорткат; параметры — [docs/ai/echoinstone-cli.md](../../docs/ai/echoinstone-cli.md)). Без однострочников и без `sandbox-run` для транскрипта.
+**CLI:** `echoinstone "URL"` → читать `results/…/speaker_transcriptions.csv`. Без `export_diarized_txt.py`, однострочников и `sandbox-run` для транскрипта. Параметры — [docs/ai/echoinstone-cli.md](../../docs/ai/echoinstone-cli.md).
 
 **Полная диаризация:** `echoinstone "URL" --disable_subtitle_first` (Whisper + pyannote).

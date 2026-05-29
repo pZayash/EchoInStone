@@ -77,22 +77,20 @@ echoinstone-bench --help
 
 - **Не** использовать `sandbox-run`, `python3 -c`, `poetry run python -c` и отдельные yt-dlp-скрипты для извлечения транскрипта YouTube — это дублирует и обходит пайплайн EchoInStone.
 - **Не** подменять `echoinstone` однострочниками из навыка sandbox-oneliner; sandbox — только для посторонних сниппетов, не связанных с медиа этого репозитория.
-- Скилл [youtube-video-summary](../../.cursor/skills/youtube-video-summary/SKILL.md): запуск `echoinstone`, экспорт в `diarization/transcripts/`, резюме.
+- Скилл [youtube-video-summary](../../.cursor/skills/youtube-video-summary/SKILL.md): `echoinstone`, затем чтение `results/…/speaker_transcriptions.csv` (или `.json`) для резюме — **без** экспортных скриптов.
 - Нужен `HUGGING_FACE_TOKEN` в `EchoInStone/config.py` (pyannote), `ffmpeg` в PATH; для OCR — Tesseract (см. README).
 
-## Экспорт текста для резюме
+## Транскрипт для резюме (агенты)
 
-После `echoinstone` — экспорт в `diarization/transcripts/` (Poetry из корня репозитория):
+После `echoinstone` артефакты лежат в каталоге из лога `Output directory:`:
 
-```bash
-poetry run python .cursor/skills/youtube-video-summary/scripts/export_diarized_txt.py \
-  "results/.../speaker_transcriptions.json" \
-  "diarization/transcripts/VIDEO_ID.diarized.txt" \
-  --url "https://www.youtube.com/watch?v=VIDEO_ID"
-```
+- `speaker_transcriptions.csv` — предпочтительный вход для резюме
+- `speaker_transcriptions.json` — запасной вариант
 
-Свежий JSON (пример):
+Найти свежий CSV:
 
 ```bash
-ls -td results/*/speaker_transcriptions.json 2>/dev/null | head -1
+ls -td results/*/speaker_transcriptions.csv 2>/dev/null | head -1
 ```
+
+Скрипт `export_diarized_txt.py` в навыке — только для **ручного** копирования в `diarization/transcripts/`; агентам не вызывать.

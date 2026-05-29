@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
-"""Convert EchoInStone speaker_transcriptions.json to plain text."""
+"""Convert EchoInStone speaker_transcriptions.json to plain text.
+
+Legacy/manual only — agents read results/.../speaker_transcriptions.csv directly
+(youtube-video-summary skill). Do not invoke from agent workflows.
+"""
 from __future__ import annotations
 
 import argparse
