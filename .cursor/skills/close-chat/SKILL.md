@@ -52,15 +52,8 @@ argument-hint: "--dry-run | --skip 0|1|2|3 (опционально)"
 
 ## Шаг 3 — Автокоммит (главный шаг)
 
-1. `git status` / `git diff` — только **touched** сессии.
-2. **Исключить:** `diarization/`, `results/`, `*.log`, медиа, `EchoInStone/config_private.py`, секреты.
-3. `git add` выбранные пути.
-4. Сообщение коммита: Conventional Commits, «why» в теле при необходимости.
-5. Записать `git-commit-summary/YYMMDD_HHMMSS_semantic-summary.md` (контекст, список изменений, что не вошло).
-6. `git commit` (HEREDOC). После hook — новый коммит, не amend, если hook менял файлы.
-7. `git status` — подтвердить успех.
-
-Шаблон summary — см. `git-commit-summary/20260525_150915_semantic-summary.md`.
+Следуй навыку [git-summarize-and-commit](../git-summarize-and-commit/SKILL.md) полностью:
+stage только **touched** сессии с теми же исключениями (`diarization/`, `results/`, секреты и т.д.).
 
 ## Отчёт пользователю
 

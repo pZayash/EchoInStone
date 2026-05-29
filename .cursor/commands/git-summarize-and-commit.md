@@ -5,4 +5,6 @@ category: Workflow
 description: "Семантический summary и коммит staged изменений (EchoInStone)"
 ---
 
-Следуй [.cursor/commands/git-summarize-and-commit.md](../../.cursor/commands/git-summarize-and-commit.md) полностью.
+Следуй навыку [.cursor/skills/git-summarize-and-commit/SKILL.md](../../.cursor/skills/git-summarize-and-commit/SKILL.md) полностью.
+
+**Триггеры:** `/git-summarize-and-commit`, «коммить staged», «semantic commit».
