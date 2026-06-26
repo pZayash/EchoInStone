@@ -1,193 +1,173 @@
 import logging
+import os
 from concurrent.futures import ThreadPoolExecutor
 from typing import List, Optional
 
 import cv2
-import numpy as np
 
-from ..config import (
-    VIDEO_FRAME_SAMPLING_SECONDS,
-    VIDEO_MAX_SCENE_SAMPLES,
-    VIDEO_MAX_WORKERS,
-    VIDEO_ENABLE_PARALLEL,
-)
+from ..config import VIDEO_ENABLE_PARALLEL, VIDEO_MAX_WORKERS
 from ..utils import DataSaver
+from .hash_scene_boundary_detector import HashSceneBoundaryDetector
+from .keyframe_extractor import KeyframeExtractor
+from .keyframe_types import KeyframeManifest, KeyframeRecord
 from .ocr_text_extractor_interface import OCRResult, OCRTextExtractorInterface
-from .tesseract_ocr_text_extractor import TesseractOCRTextExtractor
 from .video_scene_analyzer_interface import SceneSegment, VideoSceneAnalyzerInterface
 
 logger = logging.getLogger(__name__)
 
 
 class VideoProcessingPipeline:
-    def __init__(self,
-                 scene_analyzer: VideoSceneAnalyzerInterface,
-                 ocr_extractor: OCRTextExtractorInterface,
-                 saver: DataSaver,
-                 job_id: str | None = None,
-                 frame_sampling_seconds: float | None = None,
-                 max_workers: int | None = None,
-                 enable_parallel: bool | None = None,
-                 max_scene_samples: int | None = None):
+    """Extract keyframes, run scene-text OCR, and produce enrichment artifacts."""
+
+    def __init__(
+        self,
+        scene_analyzer: VideoSceneAnalyzerInterface,
+        ocr_extractor: OCRTextExtractorInterface,
+        saver: DataSaver,
+        keyframe_extractor: Optional[KeyframeExtractor] = None,
+        job_id: str | None = None,
+        max_workers: int | None = None,
+        enable_parallel: bool | None = None,
+    ):
         self.scene_analyzer = scene_analyzer
         self.ocr_extractor = ocr_extractor
         self.saver = saver
-        self.job_id = job_id
-        self.frame_sampling_seconds = (
-            frame_sampling_seconds if frame_sampling_seconds is not None else VIDEO_FRAME_SAMPLING_SECONDS
+        self.keyframe_extractor = keyframe_extractor or KeyframeExtractor(
+            boundary_detector=HashSceneBoundaryDetector()
         )
+        self.job_id = job_id
         self.max_workers = max_workers if max_workers is not None else VIDEO_MAX_WORKERS
         self.enable_parallel = enable_parallel if enable_parallel is not None else VIDEO_ENABLE_PARALLEL
-        self.max_scene_samples = max_scene_samples if max_scene_samples is not None else VIDEO_MAX_SCENE_SAMPLES
 
-    def analyze(self, video_path: str) -> List[dict]:
-        logger.info("Running video analysis on %s", video_path)
-        scenes = self.scene_analyzer.detect_scenes(video_path)
-        if not scenes:
-            logger.warning("No scenes detected for video analysis.")
-            return []
+    def analyze(
+        self,
+        video_path: str,
+        phrase_timestamps: Optional[List[float]] = None,
+        include_scene_boundary: bool = True,
+        include_periodic: bool = True,
+    ) -> tuple[List[dict], List[dict]]:
+        """
+        Run keyframe extraction + OCR and return (scene_records, enrichment_entries).
+        """
+        logger.info("Running video visual analysis on %s", video_path)
+        keyframes = self.keyframe_extractor.extract_keyframes(
+            video_path,
+            output_dir=self.saver.output_dir,
+            phrase_timestamps=phrase_timestamps,
+            include_scene_boundary=include_scene_boundary,
+            include_periodic=include_periodic,
+        )
+        if not keyframes:
+            logger.warning("No keyframes extracted for %s", video_path)
+            return [], []
 
         if self.enable_parallel and self.max_workers and self.max_workers > 1:
-            results = self._analyze_parallel(video_path, scenes)
-            logger.info("Video analysis produced %d scene records.", len(results))
-            return results
+            self._ocr_parallel(keyframes, video_path)
+        else:
+            self._ocr_sequential(keyframes, video_path)
 
-        cap = cv2.VideoCapture(video_path)
-        results: List[dict] = []
-        try:
-            for scene in scenes:
-                results.append(self._analyze_scene(cap, scene))
-        finally:
-            cap.release()
+        manifest_path = os.path.join(self.saver.output_dir, "keyframes", "manifest.json")
+        manifest = KeyframeManifest(manifest_path)
+        manifest.merge_records(keyframes)
+        manifest.save()
 
-        logger.info("Video analysis produced %d scene records.", len(results))
-        return results
+        enrichment_entries = manifest.to_enrichment_entries()
+        self.saver.save_visual_enrichment(enrichment_entries)
+
+        scenes = self.scene_analyzer.detect_scenes(video_path)
+        scene_records = self._build_scene_records(scenes, keyframes)
+        logger.info(
+            "Video analysis produced %d keyframes and %d scene records.",
+            len(keyframes),
+            len(scene_records),
+        )
+        return scene_records, enrichment_entries
 
     def save_results(self, filename: str, scenes: List[dict]):
         payload = {"scenes": scenes}
         self.saver.save_data(filename, payload)
 
-    def _analyze_parallel(self, video_path: str, scenes: List[SceneSegment]) -> List[dict]:
-        results_by_id: dict[int, dict] = {}
-        scenes_by_id = {scene.id: scene for scene in scenes}
-        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
-            futures = {
-                executor.submit(self._analyze_scene_with_path, video_path, scene): scene.id
-                for scene in scenes
-            }
-            for future in futures:
-                scene_id = futures[future]
-                try:
-                    results_by_id[scene_id] = future.result()
-                except Exception as exc:
-                    logger.warning("Scene analysis failed for scene %s: %s", scene_id, exc)
-                    scene = scenes_by_id.get(scene_id)
-                    if not scene:
-                        continue
-                    results_by_id[scene_id] = self._build_scene_record(
-                        scene,
-                        "Scene analysis failed",
-                        "error",
-                        OCRResult(text="", confidence=0.0, engine="none"),
-                    )
-
-        return [results_by_id[scene.id] for scene in scenes if scene.id in results_by_id]
-
-    def _analyze_scene_with_path(self, video_path: str, scene: SceneSegment) -> dict:
+    def _ocr_sequential(self, keyframes: List[KeyframeRecord], video_path: str) -> None:
         cap = cv2.VideoCapture(video_path)
         try:
-            return self._analyze_scene(cap, scene)
+            for record in keyframes:
+                frame = KeyframeExtractor._read_frame_at(cap, record.timestamp_seconds)
+                if frame is None and record.image_path:
+                    frame = self._load_saved_frame(record.image_path)
+                if frame is None:
+                    continue
+                result = self.ocr_extractor.extract_text(frame)
+                record.ocr_text = result.text
+                record.ocr_confidence = result.confidence
+                record.ocr_engine = result.engine
         finally:
             cap.release()
 
-    def _analyze_scene(self, cap, scene: SceneSegment) -> dict:
-        frames = self._sample_frames(cap, scene)
-        representative_frame = frames[0] if frames else None
-        description, category = self._describe_scene(representative_frame)
-        ocr_extractor = self._get_ocr_extractor(scene.id)
-        ocr_result = self._extract_best_ocr(frames, ocr_extractor)
-        record = self._build_scene_record(scene, description, category, ocr_result)
-        frames.clear()
-        return record
+    def _ocr_parallel(self, keyframes: List[KeyframeRecord], video_path: str) -> None:
+        def process(record: KeyframeRecord) -> KeyframeRecord:
+            cap = cv2.VideoCapture(video_path)
+            try:
+                frame = KeyframeExtractor._read_frame_at(cap, record.timestamp_seconds)
+            finally:
+                cap.release()
+            if frame is None and record.image_path:
+                frame = self._load_saved_frame(record.image_path)
+            if frame is None:
+                return record
+            result = self.ocr_extractor.extract_text(frame)
+            record.ocr_text = result.text
+            record.ocr_confidence = result.confidence
+            record.ocr_engine = result.engine
+            return record
 
-    def _sample_frames(self, cap, scene: SceneSegment) -> List[np.ndarray]:
-        if scene.duration <= 0:
-            return []
+        with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
+            processed = list(executor.map(process, keyframes))
+        keyframes[:] = processed
 
-        sample_step = max(self.frame_sampling_seconds, 0.0)
-        if sample_step == 0.0:
-            sample_times = [scene.start_time + (scene.duration / 2)]
-        else:
-            sample_times = []
-            current = scene.start_time
-            while current <= scene.end_time:
-                sample_times.append(current)
-                current += sample_step
-            if not sample_times:
-                sample_times.append(scene.start_time + (scene.duration / 2))
+    def _load_saved_frame(self, relative_path: str):
+        path = os.path.join(self.saver.output_dir, relative_path)
+        if not os.path.isfile(path):
+            return None
+        return cv2.imread(path)
 
-        max_samples = max(1, int(self.max_scene_samples))
-        if len(sample_times) > max_samples:
-            stride = max(1, len(sample_times) // max_samples)
-            sample_times = sample_times[::stride][:max_samples]
+    def _build_scene_records(
+        self, scenes: List[SceneSegment], keyframes: List[KeyframeRecord]
+    ) -> List[dict]:
+        records: List[dict] = []
+        keyframe_by_time = {round(k.timestamp_seconds, 2): k for k in keyframes}
 
-        frames: List[np.ndarray] = []
-        for sample_time in sample_times:
-            cap.set(cv2.CAP_PROP_POS_MSEC, sample_time * 1000)
-            ret, frame = cap.read()
-            if not ret:
-                logger.debug("Failed to read frame for scene %s at %.2fs", scene.id, sample_time)
-                continue
-            frames.append(frame)
+        for scene in scenes:
+            start_key = round(scene.start_time, 2)
+            kf = keyframe_by_time.get(start_key)
+            if kf is None:
+                for candidate in keyframes:
+                    if scene.start_time <= candidate.timestamp_seconds <= scene.end_time:
+                        kf = candidate
+                        break
 
-        if not frames:
-            midpoint = scene.start_time + (scene.duration / 2)
-            cap.set(cv2.CAP_PROP_POS_MSEC, midpoint * 1000)
-            ret, frame = cap.read()
-            if ret:
-                frames.append(frame)
+            description, category = self._describe_scene_from_keyframe(kf)
+            ocr_result = OCRResult(
+                text=kf.ocr_text if kf else "",
+                confidence=kf.ocr_confidence if kf else 0.0,
+                engine=kf.ocr_engine if kf else "none",
+            )
+            records.append(
+                self._build_scene_record(scene, description, category, ocr_result)
+            )
+        return records
 
-        return frames
-
-    def _extract_best_ocr(
-        self, frames: List[np.ndarray], ocr_extractor: OCRTextExtractorInterface
-    ) -> OCRResult:
-        if not frames:
-            return OCRResult(text="", confidence=0.0, engine="none")
-
-        best_result = OCRResult(text="", confidence=0.0, engine="none")
-        for frame in frames:
-            result = ocr_extractor.extract_text(frame)
-            if result.confidence > best_result.confidence:
-                best_result = result
-        return best_result
-
-    def _get_ocr_extractor(self, scene_id: int) -> OCRTextExtractorInterface:
-        if isinstance(self.ocr_extractor, TesseractOCRTextExtractor):
-            if self.enable_parallel:
-                return self._clone_tesseract_extractor(scene_id)
-            self.ocr_extractor.scene_id = scene_id
-            if self.job_id:
-                self.ocr_extractor.job_id = self.job_id
-        return self.ocr_extractor
-
-    def _clone_tesseract_extractor(self, scene_id: int) -> TesseractOCRTextExtractor:
-        extractor = self.ocr_extractor
-        return TesseractOCRTextExtractor(
-            confidence_threshold=extractor.confidence_threshold,
-            language=extractor.language,
-            use_paddle_fallback=extractor.use_paddle_fallback,
-            paddle_model_dir=extractor.paddle_model_dir,
-            verbose_logging=extractor.verbose_logging,
-            data_saver=extractor.data_saver,
-            job_id=self.job_id or extractor.job_id,
-            scene_id=scene_id,
-        )
+    def _describe_scene_from_keyframe(self, keyframe: Optional[KeyframeRecord]) -> tuple[str, str]:
+        if keyframe is None or not keyframe.image_path:
+            return "No keyframe available", "unknown"
+        frame = self._load_saved_frame(keyframe.image_path)
+        return self._describe_scene(frame)
 
     @staticmethod
-    def _describe_scene(frame: Optional[np.ndarray]) -> tuple[str, str]:
+    def _describe_scene(frame) -> tuple[str, str]:
         if frame is None:
             return "No frame available", "unknown"
+
+        import numpy as np
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         brightness = float(np.mean(gray))
@@ -204,10 +184,12 @@ class VideoProcessingPipeline:
         return "Simple scene or talking head", "discussion"
 
     @staticmethod
-    def _build_scene_record(scene: SceneSegment,
-                            description: str,
-                            category: str,
-                            ocr_result: OCRResult) -> dict:
+    def _build_scene_record(
+        scene: SceneSegment,
+        description: str,
+        category: str,
+        ocr_result: OCRResult,
+    ) -> dict:
         frame_count = max(0, scene.end_frame - scene.start_frame)
         return {
             "id": scene.id,

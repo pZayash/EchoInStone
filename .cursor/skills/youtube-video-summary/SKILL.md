@@ -23,6 +23,7 @@ argument-hint: "YOUTUBE_URL"
 - [ ] 2. echoinstone "URL" (subtitle-first по умолчанию)
 - [ ] 3. При необходимости полной диаризации: --disable_subtitle_first
 - [ ] 4. Найти каталог results/… с speaker_transcriptions.csv (или .json)
+- [ ] 4b. Для видео с `--enable_video_analysis`: опционально `visual_enrichment.json` и `keyframes/` для on-screen текста
 - [ ] 5. Прочитать CSV/JSON как есть → резюме (язык сообщения пользователя)
 - [ ] 6. В конце резюме — блок «Вопросы для углубления» (4–6 штук, см. §3)
 - [ ] 7. Опционально: summary.md в том же каталоге (шаблон summarizev2 + те же вопросы)

@@ -14,9 +14,9 @@ class DummyVideoPipeline:
     def __init__(self):
         self.called_with = None
 
-    def analyze(self, video_path: str):
+    def analyze(self, video_path: str, **kwargs):
         self.called_with = video_path
-        return [{"id": 1}]
+        return ([{"id": 1}], [{"timestamp_seconds": 0.0}])
 
 
 def test_media_orchestrator_audio_only():
@@ -56,8 +56,8 @@ def test_media_orchestrator_ignores_invalid_audio_items():
             ]
 
     class SceneVideoPipeline:
-        def analyze(self, _video_path: str):
-            return [{"id": 1, "start_time": 0.0, "end_time": 2.0}]
+        def analyze(self, _video_path: str, **kwargs):
+            return ([{"id": 1, "start_time": 0.0, "end_time": 2.0}], [])
 
     orchestrator = MediaProcessingOrchestrator(
         audio_pipeline=MixedAudioPipeline(),

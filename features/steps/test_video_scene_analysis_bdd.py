@@ -19,9 +19,9 @@ class DummyVideoPipeline:
     def __init__(self):
         self.called_with = None
 
-    def analyze(self, video_path):
+    def analyze(self, video_path, **kwargs):
         self.called_with = video_path
-        return [{"id": 1}]
+        return ([{"id": 1}], [])
 
 
 @pytest.fixture

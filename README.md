@@ -7,7 +7,7 @@
 - **Transcription**: Convert audio files into text using state-of-the-art automatic speech recognition (ASR) model, `Whisper Large v3 Turbo`.
 - **Diarization**: Identify and separate different speakers in an audio file with the cutting-edge model, `Pyannote Speaker Diarization 3.1`.
 - **Alignment**: Align transcribed text with the corresponding audio segments using a customized algorithm tailored to be highly efficient and faithful to the outputs of Whisper and Pyannote, `SpeakerAlignement`.
-- **Video Scene Analysis**: Detect visual scene boundaries, generate scene descriptions, and extract on-screen text via OCR.
+- **Video Visual Enrichment**: Extract keyframes at scene boundaries and periodic intervals, run scene-text OCR (EasyOCR `ru`+`en`), and support two-pass agent enrichment.
 - **Flexible and Extensible Pipeline**: Easily integrate new models or processing steps into an orchestrated pipeline, `MediaProcessingOrchestrator`.
 
 > Note: The current version of EchoInStone is a preliminary release. Future updates will include more flexible configuration options and enhanced functionality.
@@ -19,7 +19,8 @@
 - Python 3.11 or higher
 - Poetry (dependency management tool)
 - ffmpeg (required for audio processing)
-- Tesseract OCR (required for text extraction from video frames)
+- Tesseract OCR (optional fallback when `OCR_ENGINE=tesseract`)
+- EasyOCR for scene-text OCR (install with `poetry install --extras scene-ocr`)
 
 > Note: `ffmpeg` must be installed and available in your system's PATH.  
 > You can install it via your package manager:
@@ -105,8 +106,10 @@ echoinstone "https://www.youtube.com/watch?v=plZRCMx_Jd8"
   ```bash
   poetry run python main.py <audio_input_url> --transcription_output <output_filename>
   ```
-- **`--enable_video_analysis`** / **`--disable_video_analysis`**: Toggle video scene analysis when input is a video source.
-- **`--scene_output`**: Filename for the scene analysis output. Default is `"scene_analysis.json"`.
+- **`--enable_video_analysis`** / **`--disable_video_analysis`**: Toggle keyframe extraction and scene-text OCR for video.
+- **`--scene_output`**: Filename for scene analysis JSON (default `scene_analysis.json`).
+- **`--job-dir`**: Pass 2 — existing job output directory (with `job_metadata.json`).
+- **`--extract-at`**: Pass 2 — comma-separated timestamps (`mm:ss`, `hh:mm:ss`, or seconds).
 
 ### Examples
 
@@ -130,9 +133,14 @@ echoinstone "https://www.youtube.com/watch?v=plZRCMx_Jd8"
   poetry run python main.py "https://media.radiofrance-podcast.net/podcast09/25425-13.02.2025-ITEMA_24028677-2025C53905E0006-NET_MFC_D378B90D-D570-44E9-AB5A-F0CC63B05A14-21.mp3"
   ```
 
-- **Analyze a video file with scene detection and OCR**:
+- **Analyze a video with keyframes and scene-text OCR** (requires `poetry install --extras scene-ocr`):
   ```bash
-  poetry run python main.py "https://example.com/demo.mp4" --enable_video_analysis --scene_output scene_analysis.json
+  echoinstone "./meeting.mp4" --enable_video_analysis
+  ```
+
+- **Pass 2: enrich summary with on-screen text at key moments**:
+  ```bash
+  echoinstone --job-dir "results/260626_0917_meeting" --extract-at "5:00,40:00"
   ```
 
 ## Testing
@@ -210,23 +218,31 @@ Logging is configured to output messages to both the console and a file (`app.lo
 
 ### Video Analysis Configuration
 
-Video analysis settings live in `EchoInStone/config.py`. Common options include:
+Video analysis settings live in `EchoInStone/config.py`:
 
-- `VIDEO_ANALYSIS_ENABLED`: Default toggle for video analysis.
-- `VIDEO_PROCESSING_PROFILE`: Profile selection (`fast`, `balanced`, `quality`).
-- `VIDEO_FRAME_SAMPLING_SECONDS`: Frame sampling interval.
-- `VIDEO_MAX_WORKERS`: Parallel worker count for scene analysis.
-- `VIDEO_MAX_SCENE_SAMPLES`: Maximum frames sampled per scene.
+- `VIDEO_ANALYSIS_ENABLED`: Default toggle (off until validated on reference webinar).
+- `KEYFRAME_PERIODIC_INTERVAL_SECONDS`: Periodic fallback interval (default 45 s).
+- `KEYFRAME_MAX_PER_JOB`: Maximum keyframes per job (default 300).
+- `OCR_ENGINE`: `easyocr` (default) or `tesseract`.
+
+Install scene-text OCR:
+
+```bash
+poetry install --extras scene-ocr
+```
+
+Pass 1 outputs (when video analysis enabled): `job_metadata.json`, `visual_enrichment.json`,
+`keyframes/manifest.json`, `keyframes/*.png`, `scene_analysis.json`.
 
 ### OCR Configuration
 
 OCR settings live in `EchoInStone/config.py`:
 
-- `OCR_CONFIDENCE_THRESHOLD`: Minimum confidence for Tesseract before fallback.
-- `OCR_USE_PADDLE_FALLBACK`: Enables PaddleOCR fallback if Tesseract fails.
-- `TESSERACT_CMD`: Explicit path to the Tesseract binary when PATH is not set.
-- `MODEL_STORAGE_DIR`: Base directory for AI model downloads.
-- `PADDLEOCR_MODEL_DIR`: Override PaddleOCR model storage location (defaults to `MODEL_STORAGE_DIR/paddleocr`).
+- `OCR_ENGINE`: Default scene-text engine (`easyocr` or `tesseract`).
+- `EASYOCR_LANGUAGES`: Default `["ru", "en"]` for webinar UI text.
+- `OCR_CONFIDENCE_THRESHOLD`: Minimum confidence threshold.
+- `OCR_USE_PADDLE_FALLBACK`: PaddleOCR fallback for Tesseract engine only.
+- `TESSERACT_CMD`: Explicit path to Tesseract when `OCR_ENGINE=tesseract`.
 
 ### Operational Guides
 

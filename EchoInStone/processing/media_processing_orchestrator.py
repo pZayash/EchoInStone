@@ -24,7 +24,7 @@ class MediaProcessingOrchestrator:
         if self.enable_video_analysis:
             if self.video_pipeline and video_path:
                 logger.info("Starting video scene analysis...")
-                video_results = self.video_pipeline.analyze(video_path)
+                video_results, _enrichment = self.video_pipeline.analyze(video_path)
                 if audio_results and video_results:
                     self._correlate_audio_with_scenes(audio_results, video_results)
             else:

@@ -13,7 +13,13 @@ from .video_processing_pipeline import VideoProcessingPipeline
 from .video_scene_analyzer_interface import VideoSceneAnalyzerInterface, SceneSegment
 from .ocr_text_extractor_interface import OCRTextExtractorInterface, OCRResult
 from .py_scene_detect_video_scene_analyzer import PySceneDetectVideoSceneAnalyzer
+from .hash_scene_boundary_detector import HashSceneBoundaryDetector
+from .keyframe_extractor import KeyframeExtractor
+from .keyframe_types import KeyframeManifest, KeyframeRecord
+from .easyocr_text_extractor import EasyOCRTextExtractor
+from .ocr_factory import create_ocr_extractor
 from .tesseract_ocr_text_extractor import TesseractOCRTextExtractor
+from .timestamp_parser import parse_timestamp_list
 
 try:
     from .faster_whisper_audio_transcriber import FasterWhisperAudioTranscriber
@@ -36,6 +42,13 @@ __all__ = [
     'OCRTextExtractorInterface',
     'OCRResult',
     'PySceneDetectVideoSceneAnalyzer',
+    'HashSceneBoundaryDetector',
+    'KeyframeExtractor',
+    'KeyframeManifest',
+    'KeyframeRecord',
+    'EasyOCRTextExtractor',
+    'create_ocr_extractor',
     'TesseractOCRTextExtractor',
+    'parse_timestamp_list',
     'FasterWhisperAudioTranscriber',
 ]

@@ -24,9 +24,11 @@ paddleocr = "^3.3.3"
 paddlepaddle = "^3.3.0"
 yt-dlp = "^2026.3.17"
 faster-whisper = {version = "^1.1.0", optional = true}
+easyocr = {version = "^1.7.2", optional = true}
 
 [tool.poetry.extras]
 faster-whisper = ["faster-whisper"]
+scene-ocr = ["easyocr"]
 
 [[tool.poetry.source]]
 name = "pytorch-xpu"

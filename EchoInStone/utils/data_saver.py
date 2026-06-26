@@ -83,6 +83,56 @@ class DataSaver:
         """
         self.save_data(filename, {"scenes": scenes})
 
+    def save_visual_enrichment(self, entries: list, filename: str = "visual_enrichment.json"):
+        """Save or merge visual enrichment entries ordered by timestamp."""
+        file_path = os.path.join(self.output_dir, filename)
+        existing: list = []
+        if os.path.isfile(file_path):
+            try:
+                with open(file_path, encoding="utf-8") as handle:
+                    payload = json.load(handle)
+                existing = payload.get("entries", [])
+            except (json.JSONDecodeError, TypeError):
+                existing = []
+
+        merged = {round(e["timestamp_seconds"], 2): e for e in existing}
+        for entry in entries:
+            key = round(float(entry["timestamp_seconds"]), 2)
+            merged[key] = entry
+
+        ordered = sorted(merged.values(), key=lambda e: e["timestamp_seconds"])
+        self.save_data(filename, {"entries": ordered})
+
+    def save_job_metadata(
+        self,
+        job_id: str,
+        echo_input: str,
+        source_video_path: str | None,
+        video_analysis_enabled: bool,
+        filename: str = "job_metadata.json",
+    ):
+        """Persist job metadata for two-pass enrichment."""
+        payload = {
+            "job_id": job_id,
+            "echo_input": echo_input,
+            "source_video_path": (
+                os.path.abspath(source_video_path) if source_video_path else None
+            ),
+            "video_analysis_enabled": video_analysis_enabled,
+        }
+        self.save_data(filename, payload)
+
+    def load_job_metadata(self, filename: str = "job_metadata.json") -> dict | None:
+        """Load job metadata from the output directory."""
+        file_path = os.path.join(self.output_dir, filename)
+        if not os.path.isfile(file_path):
+            return None
+        try:
+            with open(file_path, encoding="utf-8") as handle:
+                return json.load(handle)
+        except (json.JSONDecodeError, TypeError):
+            return None
+
     def save_image_artifact(
         self,
         job_id: Optional[str],

@@ -1,6 +1,6 @@
 # EchoInStone CLI для агентов и терминала
 
-Проект **EchoInStone** — транскрипция, диаризация, выравнивание сегментов и (опционально) анализ видео. Для любой работы с роликами, подкастами и локальными аудио/видео **не пишите однострочники** (`python -c`, heredoc, `sandbox-run` + yt-dlp) — используйте пайплайн репозитория.
+Проект **EchoInStone** — транскрипция, диаризация, выравнивание сегментов и (опционально) визуальное обогащение видео. Для любой работы с роликами, подкастами и локальными аудио/видео **не пишите однострочники** (`python -c`, heredoc, `sandbox-run` + yt-dlp) — используйте пайплайн репозитория.
 
 ## Глобальный шорткат `echoinstone`
 
@@ -12,85 +12,67 @@
 | `echoinstone-bench` | `benchmark_transcribers.py` |
 | `echoinstone-test` | `pytest tests/ features/` |
 
-Доступны в **bash**, **cmd** и **PowerShell** (имена файлов: `echoinstone`, `echoinstone.cmd`, `echoinstone.ps1` и т.д.).
-
-Первый позиционный аргумент и значение `--output_dir` разрешаются **относительно текущей директории** вызова (URL и абсолютные пути не трогаются).
-
-Эквивалент без шортката (из любого каталога):
-
-```bash
-poetry --directory "C:/!Pavl0/GitHub/pzayash/EchoInStone" run python main.py <аргументы>
-```
-
-В документации и скиллах под **`echoinstone`** имеется в виду эта обёртка; путь к репозиторию в обёртках зашит в `echoinstone*.ps1` / `echoinstone` (bash).
-
 ## Запуск
 
 ```bash
 echoinstone "<audio_input_url_or_path>"
 ```
 
-`<audio_input_url_or_path>` — YouTube, RSS подкаста, прямой URL аудио/видео или локальный файл.
+Результаты: каталог `results/{yyMMdd_HHmm}_{название}/` с `speaker_transcriptions.json` и `.csv`.
 
-По умолчанию для YouTube включён **subtitle-first** (субтитры через встроенный `YouTubeDownloader`, затем при необходимости Whisper + pyannote). Полное описание поведения — в [README.md](../../README.md) и `EchoInStone/config.py` (`SUBTITLE_FIRST_*`).
-
-Результаты: каталог `results/{yyMMdd_HHmm}_{название}/` с `speaker_transcriptions.json` и `.csv` (и при анализе видео — `scene_analysis.json`).
+При `--enable_video_analysis` дополнительно: `job_metadata.json`, `visual_enrichment.json`, `keyframes/`, `scene_analysis.json`.
 
 ## Параметры `main.py`
 
 | Параметр | Описание |
 |----------|----------|
-| `echo_input` | URL или путь к медиа (обязательный позиционный) |
+| `echo_input` | URL или путь к медиа (необязателен в pass 2) |
 | `--output_dir` | Куда писать результаты (по умолчанию `results`) |
-| `--transcription_output` | Имя JSON с транскриптом (по умолчанию `speaker_transcriptions.json`) |
-| `--enable_video_analysis` | Включить сцену/OCR для видео |
-| `--disable_video_analysis` | Отключить анализ видео |
-| `--scene_output` | Имя JSON сцен (по умолчанию `scene_analysis.json`) |
-| `--disable_subtitle_first` | Всегда Whisper + диаризация, без попытки субтитров YouTube |
-| `--transcriber_backend` | `auto`, `transformers` или `faster-whisper` |
+| `--transcription_output` | Имя JSON с транскриптом |
+| `--enable_video_analysis` | Keyframe + scene-text OCR |
+| `--disable_video_analysis` | Отключить визуальный анализ |
+| `--scene_output` | Имя JSON сцен |
+| `--job-dir` | Pass 2: каталог job из pass 1 |
+| `--extract-at` | Pass 2: метки времени (`5:00,40:00`) |
+| `--disable_subtitle_first` | Всегда Whisper + диаризация |
+| `--transcriber_backend` | `auto`, `transformers`, `faster-whisper` |
 
-Примеры:
+## Two-pass enrichment (агенты)
 
-```bash
-# YouTube: сначала субтитры, иначе ASR + диаризация (по умолчанию)
-echoinstone "https://www.youtube.com/watch?v=VIDEO_ID"
-
-# Только Whisper + pyannote (долго, со спикерами в JSON)
-echoinstone "https://www.youtube.com/watch?v=VIDEO_ID" --disable_subtitle_first
-
-# Локальный файл, свой каталог результатов
-echoinstone "./meeting.mp4" --output_dir "./out/meeting"
-
-# Видео со сценами и OCR
-echoinstone "https://example.com/demo.mp4" --enable_video_analysis
-```
-
-Тесты и бенчмарк:
+**Pass 1** — транскрипция + опционально полный визуальный анализ:
 
 ```bash
-echoinstone-test
-echoinstone-test tests/test_subtitle_extraction.py -v
-echoinstone-bench --help
+poetry install --extras scene-ocr
+echoinstone "./webinar.mp4" --enable_video_analysis
 ```
 
-## Агенты: что не делать
+**Pass 2** — точечное извлечение keyframe + OCR по меткам из суммаризации:
 
-- **Не** использовать `sandbox-run`, `python3 -c`, `poetry run python -c` и отдельные yt-dlp-скрипты для извлечения транскрипта YouTube — это дублирует и обходит пайплайн EchoInStone.
-- **Не** подменять `echoinstone` однострочниками из навыка sandbox-oneliner; sandbox — только для посторонних сниппетов, не связанных с медиа этого репозитория.
-- Скилл [youtube-video-summary](../../.cursor/skills/youtube-video-summary/SKILL.md): `echoinstone`, затем чтение `results/…/speaker_transcriptions.csv` (или `.json`) для резюме — **без** экспортных скриптов.
-- Нужен `HUGGING_FACE_TOKEN` в `EchoInStone/config.py` (pyannote), `ffmpeg` в PATH; для OCR — Tesseract (см. README).
+```bash
+echoinstone --job-dir "results/260626_0917_webinar" --extract-at "5:00,40:00"
+```
+
+Артефакты для обогащения резюме:
+
+- `visual_enrichment.json` — OCR-текст по времени
+- `keyframes/manifest.json` + `keyframes/*.png` — картинки
+- `job_metadata.json` — `source_video_path` для pass 2
 
 ## Транскрипт для резюме (агенты)
 
-После `echoinstone` артефакты лежат в каталоге из лога `Output directory:`:
+После pass 1:
 
-- `speaker_transcriptions.csv` — предпочтительный вход для резюме
-- `speaker_transcriptions.json` — запасной вариант
-
-Найти свежий CSV:
+- `speaker_transcriptions.csv` — основной вход для резюме
+- `visual_enrichment.json` — опционально для on-screen контента
 
 ```bash
 ls -td results/*/speaker_transcriptions.csv 2>/dev/null | head -1
 ```
 
-Скрипт `export_diarized_txt.py` в навыке — только для **ручного** копирования в `diarization/transcripts/`; агентам не вызывать.
+## Зависимости
+
+- `HUGGING_FACE_TOKEN` в `EchoInStone/config.py` (pyannote)
+- `ffmpeg` в PATH
+- Scene-text OCR: `poetry install --extras scene-ocr` (EasyOCR `ru`+`en`)
+
+Скилл [youtube-video-summary](../../.cursor/skills/youtube-video-summary/SKILL.md): `echoinstone` → CSV/JSON; при видео — также `visual_enrichment.json`.

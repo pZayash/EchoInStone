@@ -16,10 +16,16 @@ SEGMENT_MAX_DURATION = 60       # Maximum segment duration in seconds
 SEGMENT_PAUSE_THRESHOLD = 2.0   # Pause threshold for splitting in seconds
 
 # Video scene analysis configuration
-# Disabled by default — scene detection needs further refinement before practical use
+# Re-enable after validation on reference webinar video (task 8.5)
 VIDEO_ANALYSIS_ENABLED = False
 VIDEO_FRAME_SAMPLING_SECONDS = 1.0
 VIDEO_SCENE_DETECTOR_THRESHOLD = 27.0
+VIDEO_SCENE_HASH_THRESHOLD = 0.395
+KEYFRAME_PERIODIC_INTERVAL_SECONDS = 45.0
+KEYFRAME_MAX_PER_JOB = 300
+KEYFRAME_DEDUP_SECONDS = 0.5
+KEYFRAME_MIN_BOUNDARIES = 2
+KEYFRAME_SAVE_ENABLED = True
 VIDEO_MAX_WORKERS = 2
 VIDEO_ENABLE_PARALLEL = True
 VIDEO_MAX_SCENE_SAMPLES = 5
@@ -46,7 +52,9 @@ VIDEO_PROFILE_SETTINGS = {
 }
 
 # OCR configuration
-OCR_LANGUAGE = "en"
+OCR_ENGINE = "easyocr"  # easyocr | tesseract
+OCR_LANGUAGE = "rus+eng"
+EASYOCR_LANGUAGES = ["ru", "en"]
 OCR_CONFIDENCE_THRESHOLD = 40.0
 OCR_USE_PADDLE_FALLBACK = True
 OCR_VERBOSE_LOGGING_ENABLED = True
