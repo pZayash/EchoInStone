@@ -24,11 +24,12 @@ class AudioProcessingPipeline:
         self.saver = saver
         self.subtitle_first = subtitle_first
 
-    def process(self, echo_input: str):
+    def process(self, echo_input: str, audio_path: str | None = None):
         """
         Runs the audio processing pipeline: download, transcribe, diarize, align.
         When subtitle_first is enabled and downloader is YouTubeDownloader,
         attempts to extract subtitles before downloading audio.
+        If audio_path is provided (already downloaded), skips the download step.
         """
         # Subtitle-first fast path
         if self.subtitle_first and isinstance(self.downloader, YouTubeDownloader):
@@ -51,8 +52,9 @@ class AudioProcessingPipeline:
                 logger.warning(f"Subtitle extraction failed, falling back to standard pipeline: {e}")
 
         # Standard pipeline: download, transcribe, diarize, align
-        logger.debug("Downloading audio...")
-        audio_path = self.downloader.download(echo_input)
+        if audio_path is None:
+            logger.debug("Downloading audio...")
+            audio_path = self.downloader.download(echo_input)
         if audio_path:
             logger.debug("Transcribing downloaded audio...")
             transcription, timestamps = self.transcriber.transcribe(audio_path)

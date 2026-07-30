@@ -20,11 +20,17 @@ from .easyocr_text_extractor import EasyOCRTextExtractor
 from .ocr_factory import create_ocr_extractor
 from .tesseract_ocr_text_extractor import TesseractOCRTextExtractor
 from .timestamp_parser import parse_timestamp_list
+from .language_detector import LanguageDetector
 
 try:
     from .faster_whisper_audio_transcriber import FasterWhisperAudioTranscriber
 except ImportError:
     FasterWhisperAudioTranscriber = None
+
+try:
+    from .gigaam_audio_transcriber import GigaamAudioTranscriber
+except ImportError:
+    GigaamAudioTranscriber = None
 
 __all__ = [
     'AudioTranscriberInterface',
@@ -50,5 +56,7 @@ __all__ = [
     'create_ocr_extractor',
     'TesseractOCRTextExtractor',
     'parse_timestamp_list',
+    'LanguageDetector',
     'FasterWhisperAudioTranscriber',
+    'GigaamAudioTranscriber',
 ]

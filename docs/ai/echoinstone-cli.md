@@ -35,7 +35,21 @@ echoinstone "<audio_input_url_or_path>"
 | `--job-dir` | Pass 2: каталог job из pass 1 |
 | `--extract-at` | Pass 2: метки времени (`5:00,40:00`) |
 | `--disable_subtitle_first` | Всегда Whisper + диаризация |
-| `--transcriber_backend` | `auto`, `transformers`, `faster-whisper` |
+| `--transcriber_backend` | `auto`, `transformers`, `faster-whisper`, `gigaam` |
+
+## GigaAM backend (Russian)
+
+Опциональный backend для русского языка на базе GigaAM v3 CTC:
+
+- Установка: `poetry install --extras gigaam`
+- Автовыбор: при `--transcriber_backend auto` и детекте русского языка (Whisper tiny, первые ~30 s)
+- Ручной выбор: `--transcriber_backend gigaam`
+- Устройство: XPU (Intel Arc) приоритетно, иначе CPU
+
+**Windows**: для корректного вывода русского текста в консоль установите:
+```bash
+set PYTHONIOENCODING=utf-8
+```
 
 ## Two-pass enrichment (агенты)
 

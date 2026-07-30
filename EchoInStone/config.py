@@ -69,10 +69,18 @@ OCR_SOURCE_IMAGE_FORMAT = "png"
 PADDLEOCR_ENABLE_PIR_API = False
 
 # Transcriber backend configuration
-TRANSCRIBER_BACKEND = "auto"  # "auto", "transformers", "faster-whisper"
+TRANSCRIBER_BACKEND = "auto"  # "auto", "transformers", "faster-whisper", "gigaam"
 FASTER_WHISPER_MODEL_SIZE = "large-v3-turbo"
 FASTER_WHISPER_COMPUTE_TYPE = "auto"
 WHISPER_BATCH_SIZE = 24
+
+# GigaAM backend configuration
+GIGAAM_ENABLED = True  # Set to False to disable GigaAM even if installed
+GIGAAM_DEVICE = "auto"  # "auto" (XPU if available, else CPU), "xpu", "cuda", "cpu"
+GIGAAM_FP16 = True
+GIGAAM_CHUNK_LENGTH = 25  # seconds
+GIGAAM_CHUNK_SHIFT = 20   # seconds
+GIGAAM_PAUSE_THRESHOLD = 0.5  # seconds for word→segment merging
 
 # Subtitle-first configuration
 SUBTITLE_FIRST_ENABLED = True

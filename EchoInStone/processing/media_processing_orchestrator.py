@@ -17,8 +17,8 @@ class MediaProcessingOrchestrator:
         self.video_pipeline = video_pipeline
         self.enable_video_analysis = enable_video_analysis
 
-    def process(self, echo_input: str, video_path: Optional[str] = None) -> Tuple[Optional[list], Optional[list]]:
-        audio_results = self.audio_pipeline.process(echo_input)
+    def process(self, echo_input: str, video_path: Optional[str] = None, audio_path: Optional[str] = None) -> Tuple[Optional[list], Optional[list]]:
+        audio_results = self.audio_pipeline.process(echo_input, audio_path=audio_path)
 
         video_results = None
         if self.enable_video_analysis:

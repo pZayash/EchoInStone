@@ -15,6 +15,8 @@ from EchoInStone.processing import (
     VideoProcessingPipeline,
     WhisperAudioTranscriber,
     FasterWhisperAudioTranscriber,
+    GigaamAudioTranscriber,
+    LanguageDetector,
     PyannoteDiarizer,
     SpeakerAligner,
     PySceneDetectVideoSceneAnalyzer,
@@ -32,6 +34,12 @@ from EchoInStone.config import (
     OCR_ENGINE,
     SUBTITLE_FIRST_ENABLED,
     TRANSCRIBER_BACKEND,
+    GIGAAM_ENABLED,
+    GIGAAM_DEVICE,
+    GIGAAM_FP16,
+    GIGAAM_CHUNK_LENGTH,
+    GIGAAM_CHUNK_SHIFT,
+    GIGAAM_PAUSE_THRESHOLD,
 )
 
 # Configure logging
@@ -110,20 +118,57 @@ def get_source_info(echo_input: str) -> str:
     return echo_input
 
 
-def create_transcriber(backend: str | None = None):
-    """Create a transcriber instance based on backend selection."""
+def create_transcriber(backend: str | None = None, audio_path: str | None = None):
+    """Create a transcriber instance based on backend selection.
+
+    Args:
+        backend: Backend name or None to use config.
+        audio_path: Path to audio file for language detection (auto mode only).
+    """
     import torch
 
     if backend is None:
         backend = TRANSCRIBER_BACKEND
 
     if backend == "auto":
-        if torch.xpu.is_available():
+        # Language-aware selection: GigaAM for Russian if installed
+        if (
+            GIGAAM_ENABLED
+            and GigaamAudioTranscriber is not None
+            and audio_path is not None
+        ):
+            detector = LanguageDetector()
+            if detector.is_russian(audio_path):
+                backend = "gigaam"
+                logger.info("Auto-selected 'gigaam' backend (Russian language detected)")
+            else:
+                backend = "transformers" if torch.xpu.is_available() else "faster-whisper"
+                logger.info("Auto-selected Whisper backend (non-Russian or detection skipped)")
+        elif torch.xpu.is_available():
             backend = "transformers"
             logger.info("Auto-selected 'transformers' backend (Intel XPU detected)")
         else:
             backend = "faster-whisper"
             logger.info("Auto-selected 'faster-whisper' backend")
+
+    if backend == "gigaam":
+        if not GIGAAM_ENABLED or GigaamAudioTranscriber is None:
+            logger.warning(
+                "gigaam is not installed or disabled. Falling back to transformers backend. "
+                "Install with: poetry install --extras gigaam"
+            )
+            return WhisperAudioTranscriber()
+        try:
+            return GigaamAudioTranscriber(
+                device=GIGAAM_DEVICE,
+                fp16_encoder=GIGAAM_FP16,
+                chunk_length=GIGAAM_CHUNK_LENGTH,
+                chunk_shift=GIGAAM_CHUNK_SHIFT,
+                pause_threshold=GIGAAM_PAUSE_THRESHOLD,
+            )
+        except ImportError:
+            logger.warning("gigaam not available. Falling back to transformers backend.")
+            return WhisperAudioTranscriber()
 
     if backend == "faster-whisper":
         if FasterWhisperAudioTranscriber is None:
@@ -261,7 +306,9 @@ def main(
         enable_video_analysis = False
 
     downloader = get_downloader(echo_input, timestamped_output_dir)
-    transcriber = create_transcriber(transcriber_backend)
+    # Download audio first to get path for language detection (reused by pipeline)
+    audio_path = downloader.download(echo_input)
+    transcriber = create_transcriber(transcriber_backend, audio_path=audio_path)
     diarizer = PyannoteDiarizer()
     aligner = SpeakerAligner()
     data_saver = DataSaver(output_dir=timestamped_output_dir)
@@ -301,7 +348,7 @@ def main(
     )
 
     logger.info("Starting transcription process...")
-    speaker_transcriptions, scene_results = orchestrator.process(echo_input, video_path)
+    speaker_transcriptions, scene_results = orchestrator.process(echo_input, video_path, audio_path=audio_path)
     if speaker_transcriptions:
         source_info = get_source_info(echo_input)
         source_entry = ("", 0, 0, source_info)
@@ -362,7 +409,7 @@ if __name__ == "__main__":
         "--transcriber_backend",
         type=str,
         default=None,
-        choices=["auto", "transformers", "faster-whisper"],
+        choices=["auto", "transformers", "faster-whisper", "gigaam"],
         help="Transcription backend",
     )
     parser.add_argument(

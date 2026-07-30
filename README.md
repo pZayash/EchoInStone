@@ -4,7 +4,7 @@
 
 ## Features
 
-- **Transcription**: Convert audio files into text using state-of-the-art automatic speech recognition (ASR) model, `Whisper Large v3 Turbo`.
+- **Transcription**: Convert audio files into text using state-of-the-art automatic speech recognition (ASR) models: `Whisper Large v3 Turbo` (multilingual) and `GigaAM v3 CTC` (Russian, optional).
 - **Diarization**: Identify and separate different speakers in an audio file with the cutting-edge model, `Pyannote Speaker Diarization 3.1`.
 - **Alignment**: Align transcribed text with the corresponding audio segments using a customized algorithm tailored to be highly efficient and faithful to the outputs of Whisper and Pyannote, `SpeakerAlignement`.
 - **Video Visual Enrichment**: Extract keyframes at scene boundaries and periodic intervals, run scene-text OCR (EasyOCR `ru`+`en`), and support two-pass agent enrichment.
@@ -21,6 +21,7 @@
 - ffmpeg (required for audio processing)
 - Tesseract OCR (optional fallback when `OCR_ENGINE=tesseract`)
 - EasyOCR for scene-text OCR (install with `poetry install --extras scene-ocr`)
+- GigaAM for Russian transcription (install with `poetry install --extras gigaam`)
 
 > Note: `ffmpeg` must be installed and available in your system's PATH.  
 > You can install it via your package manager:
@@ -97,6 +98,10 @@ echoinstone "https://www.youtube.com/watch?v=plZRCMx_Jd8"
 
 ### Command-Line Arguments
 
+- **`--transcriber_backend`**: ASR backend selection. Options: `auto` (default), `transformers`, `faster-whisper`, `gigaam`.
+  ```bash
+  poetry run python main.py <audio_input_url> --transcriber_backend gigaam
+  ```
 - **`--output_dir`**: Directory to save the output files. Default is `"results"`.
   ```bash
   poetry run python main.py <audio_input_url> --output_dir <output_directory>
@@ -112,6 +117,11 @@ echoinstone "https://www.youtube.com/watch?v=plZRCMx_Jd8"
 - **`--extract-at`**: Pass 2 — comma-separated timestamps (`mm:ss`, `hh:mm:ss`, or seconds).
 
 ### Examples
+
+- **Transcribe Russian audio with GigaAM** (faster for Russian, requires `poetry install --extras gigaam`):
+  ```bash
+  echoinstone "./russian_podcast.mp3" --transcriber_backend gigaam
+  ```
 
 - **Transcribe and diarize a YouTube video** (subtitle-first by default):
   ```bash
